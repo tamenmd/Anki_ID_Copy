@@ -3,9 +3,10 @@
 
 from aqt import mw, QAction, gui_hooks
 from aqt.browser import Browser
-from aqt.utils import showInfo
+from aqt.utils import showInfo, tooltip
 from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel
 from PyQt6.QtCore import Qt
+import re
 
 # --- Kompatibilitätsschicht für PyQt5/PyQt6 ---
 try:
@@ -26,26 +27,28 @@ LANGUAGES = {
         "compare_dialog_title": "Notiz-IDs vergleichen",
         "your_nids_label": "Deine Notiz-IDs (die du hast):",
         "friend_nids_label": "Notiz-IDs deines Freundes (die er hat):",
+        "friend_paste_button": "Aus Zwischenablage einfügen",
         "compare_button": "Vergleichen",
         "cancel_button": "Abbrechen",
         "invalid_nids_format": "Ungültiges ID-Format. Bitte geben Sie gültige Notiz-IDs ein (z.B. 'nid:123 OR nid:456' oder nur '123' pro Zeile).",
         "no_missing_cards": "Du hast alle ausgewählten Karten deines Freundes!",
-        "missing_cards_found": "{num_missing} fehlende Karten im Browser angezeigt."
+        "missing_cards_found": "{num_missing} fehlende Karten im Browser angezeigt. Suchstring in Zwischenablage kopiert."
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
         "menu_item_compare": "Compare Note IDs with Friend",
         "copied_success": "Note IDs copied ({num_ids} IDs). Example: {example_string}...",
-        
+
         # Dialogtexts
         "compare_dialog_title": "Compare Note IDs",
         "your_nids_label": "Your Note IDs (that you have):",
         "friend_nids_label": "Friend's Note IDs (that they have):",
+        "friend_paste_button": "Paste from clipboard",
         "compare_button": "Compare",
         "cancel_button": "Cancel",
         "invalid_nids_format": "Invalid ID format. Please enter valid Note IDs (e.g., 'nid:123 OR nid:456' or just '123' per line).",
         "no_missing_cards": "You have all selected cards your friend has!",
-        "missing_cards_found": "{num_missing} missing cards displayed in browser."
+        "missing_cards_found": "{num_missing} missing cards displayed in browser. Search string copied to clipboard."
     }
 }
 
@@ -66,6 +69,24 @@ def get_localized_text(key, **kwargs):
 # -----------------------------------------------------------------------------
 # Bestehende Funktion: Notiz-IDs als Suchstring kopieren
 # -----------------------------------------------------------------------------
+def set_clipboard_text(text: str) -> None:
+    clipboard = QApplication.clipboard()
+    mode_enum = getattr(clipboard, "Mode", None)
+    modes_to_try = []
+    if mode_enum is not None:
+        modes_to_try.append(getattr(mode_enum, "Clipboard", None))
+        selection_mode = getattr(mode_enum, "Selection", None)
+        if selection_mode is not None:
+            modes_to_try.append(selection_mode)
+
+    if not modes_to_try:
+        clipboard.setText(text)
+    else:
+        for mode in modes_to_try:
+            if mode is not None:
+                clipboard.setText(text, mode)
+
+
 def copy_note_ids_as_search_string(browser: Browser):
     selected_nids = browser.selectedNotes()
 
@@ -76,42 +97,37 @@ def copy_note_ids_as_search_string(browser: Browser):
     search_string_parts = []
     for nid in selected_nids:
         search_string_parts.append(f"nid:{nid}")
-    
+
     final_search_string = " OR ".join(search_string_parts)
 
-    clipboard = QApplication.clipboard()
-    clipboard.setText(final_search_string)
+    set_clipboard_text(final_search_string)
+
+    preview = final_search_string[:50]
+    if len(final_search_string) > 50:
+        preview += "…"
 
     message = get_localized_text(
         "copied_success",
         num_ids=len(selected_nids),
-        example_string=final_search_string[:50]
+        example_string=preview
     )
-    showInfo(message)
+    tooltip(message)
 
 # -----------------------------------------------------------------------------
 # Helper-Funktion zum Parsen von NIDs aus Textfeldern
 # -----------------------------------------------------------------------------
 def parse_nids_from_text(text_content: str) -> set:
     nids = set()
-    lines = text_content.strip().split('\n')
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        # Versuche, 'nid:ID' oder einfach nur 'ID' zu parsen
-        parts = line.split(" OR ") # Handles "nid:1 OR nid:2"
-        for part in parts:
-            part = part.strip()
+    # Erlaubt flexible Trennzeichen (Leerzeichen, neue Zeilen, Kommas, "or", etc.)
+    # und ignoriert ungültige Einträge ohne das restliche Parsing zu stoppen.
+    for match in re.finditer(r"(?i)\bnid:\s*(\d+)\b|\b(\d+)\b", text_content):
+        nid = match.group(1) or match.group(2)
+        if nid is not None:
             try:
-                if part.startswith("nid:"):
-                    nids.add(int(part[len("nid:"):]))
-                else:
-                    # Versuche, es direkt als Zahl zu parsen
-                    nids.add(int(part))
+                nids.add(int(nid))
             except ValueError:
-                # Ignoriere ungültige Teile
-                pass
+                # Sollte nicht vorkommen, bewahrt aber defensive Robustheit
+                continue
     return nids
 
 # -----------------------------------------------------------------------------
@@ -148,7 +164,14 @@ class NIDCompareDialog(QDialog):
 
         # Rechte Seite: Freunds IDs
         friend_nids_layout = QVBoxLayout()
-        friend_nids_layout.addWidget(QLabel(self.get_localized_text("friend_nids_label")))
+        friend_label_row = QHBoxLayout()
+        friend_label_row.addWidget(QLabel(self.get_localized_text("friend_nids_label")))
+        friend_label_row.addStretch(1)
+        self.friend_paste_button = QPushButton(self.get_localized_text("friend_paste_button"))
+        self.friend_paste_button.setAutoDefault(False)
+        self.friend_paste_button.setDefault(False)
+        friend_label_row.addWidget(self.friend_paste_button)
+        friend_nids_layout.addLayout(friend_label_row)
         friend_nids_layout.addWidget(self.friend_nids_text_edit)
         input_layout.addLayout(friend_nids_layout)
 
@@ -165,12 +188,20 @@ class NIDCompareDialog(QDialog):
 
         self.compare_button.clicked.connect(self.accept)
         self.cancel_button.clicked.connect(self.reject)
+        self.friend_paste_button.clicked.connect(self.fill_friend_from_clipboard)
 
     def get_your_nids_text(self):
         return self.your_nids_text_edit.toPlainText()
 
     def get_friend_nids_text(self):
         return self.friend_nids_text_edit.toPlainText()
+
+    def fill_friend_from_clipboard(self):
+        clipboard_text = QApplication.clipboard().text()
+        if clipboard_text:
+            self.friend_nids_text_edit.setPlainText(clipboard_text)
+            self.friend_nids_text_edit.selectAll()
+            self.friend_nids_text_edit.setFocus()
 
 
 # -----------------------------------------------------------------------------
@@ -194,16 +225,24 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
         if not your_nids and not friend_nids:
             showInfo(get_localized_text("invalid_nids_format"))
             return
-        
+
+        if not friend_nids:
+            showInfo(get_localized_text("invalid_nids_format"))
+            return
+
         missing_nids = friend_nids - your_nids
 
         if not missing_nids:
-            showInfo(get_localized_text("no_missing_cards"))
+            tooltip(get_localized_text("no_missing_cards"))
         else:
             missing_search_string_parts = [f"nid:{nid}" for nid in missing_nids]
             final_missing_search_string = " OR ".join(missing_search_string_parts)
-            browser.setFilter(final_missing_search_string) 
-            showInfo(get_localized_text("missing_cards_found", num_missing=len(missing_nids)))
+            try:
+                browser.search_for(final_missing_search_string)
+            except AttributeError:
+                browser.setFilter(final_missing_search_string)
+            set_clipboard_text(final_missing_search_string)
+            tooltip(get_localized_text("missing_cards_found", num_missing=len(missing_nids)))
 
 # -----------------------------------------------------------------------------
 # Kontextmenü-Integration
@@ -211,11 +250,12 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
 def on_browser_will_show_context_menu(browser, menu):
     action_copy = QAction(get_localized_text("menu_item_copy"), browser)
     action_copy.triggered.connect(lambda: copy_note_ids_as_search_string(browser))
+    action_copy.setEnabled(bool(browser.selectedNotes()))
     menu.addAction(action_copy)
 
     action_compare = QAction(get_localized_text("menu_item_compare"), browser)
     action_compare.triggered.connect(lambda: show_nid_compare_dialog_and_compare(browser))
-    
+
     menu.addSeparator()
     menu.addAction(action_compare)
 
