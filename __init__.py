@@ -4,7 +4,15 @@
 from aqt import mw, QAction, gui_hooks
 from aqt.browser import Browser
 from aqt.utils import showInfo, tooltip
-from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTextEdit,
+    QPushButton,
+    QLabel,
+)
 from PyQt6.QtCore import Qt
 import re
 
@@ -248,6 +256,10 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
 # Kontextmenü-Integration
 # -----------------------------------------------------------------------------
 def on_browser_will_show_context_menu(browser, menu):
+    header_action = QAction("Anki ID Copy", browser)
+    header_action.setEnabled(False)
+    menu.addAction(header_action)
+
     action_copy = QAction(get_localized_text("menu_item_copy"), browser)
     action_copy.triggered.connect(lambda: copy_note_ids_as_search_string(browser))
     action_copy.setEnabled(bool(browser.selectedNotes()))
@@ -255,8 +267,6 @@ def on_browser_will_show_context_menu(browser, menu):
 
     action_compare = QAction(get_localized_text("menu_item_compare"), browser)
     action_compare.triggered.connect(lambda: show_nid_compare_dialog_and_compare(browser))
-
-    menu.addSeparator()
     menu.addAction(action_compare)
 
 gui_hooks.browser_will_show_context_menu.append(on_browser_will_show_context_menu)
