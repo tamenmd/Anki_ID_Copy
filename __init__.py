@@ -38,7 +38,10 @@ LANGUAGES = {
         "friend_paste_button": "Aus Zwischenablage einfügen",
         "compare_button": "Vergleichen",
         "cancel_button": "Abbrechen",
-        "invalid_nids_format": "Ungültiges ID-Format. Bitte geben Sie gültige Notiz-IDs ein (z.B. 'nid:123 OR nid:456' oder nur '123' pro Zeile).",
+        "invalid_nids_format": (
+            "Ungültiges ID-Format. Bitte geben Sie gültige Notiz-IDs ein (z.B. 'nid:123 OR nid:456' oder nur "
+            "'123' pro Zeile)."
+        ),
         "no_missing_cards": "Du hast alle ausgewählten Karten deines Freundes!",
         "missing_cards_found": "{num_missing} fehlende Karten im Browser angezeigt. Suchstring in Zwischenablage kopiert."
     },
@@ -54,7 +57,9 @@ LANGUAGES = {
         "friend_paste_button": "Paste from clipboard",
         "compare_button": "Compare",
         "cancel_button": "Cancel",
-        "invalid_nids_format": "Invalid ID format. Please enter valid Note IDs (e.g., 'nid:123 OR nid:456' or just '123' per line).",
+        "invalid_nids_format": (
+            "Invalid ID format. Please enter valid Note IDs (e.g., 'nid:123 OR nid:456' or just '123' per line)."
+        ),
         "no_missing_cards": "You have all selected cards your friend has!",
         "missing_cards_found": "{num_missing} missing cards displayed in browser. Search string copied to clipboard."
     }
