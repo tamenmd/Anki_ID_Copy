@@ -1,37 +1,47 @@
 name: Build Anki Add-on
+
 on:
-  release:
-    types: [created]
-  # Optional: Auch bei jedem Push auf main bauen (zum Testen)
   push:
-    branches:
-      - main
+    branches: [ main ]
+  release:
+    types: [ created ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    # 1. Code herunterladen
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Create .ankiaddon file
-        run: |
-          # Zip erstellen, aber git-Dateien und unnötiges Zeug ausschließen
-          # Wir nennen die Datei einfach 'Anki_ID_Copy.ankiaddon'
-          zip -r Anki_ID_Copy.ankiaddon . -x "*.git*" ".gitignore" ".gitattributes" ".github/*" "screenshots/*" "README.md"
+    # 2. NEU: meta.json Timestamp aktualisieren
+    # Das sorgt dafür, dass Anki die Datei immer als "neue Version" erkennt.
+    - name: Update mod time in meta.json
+      run: |
+        python3 -c 'import json, time; f="meta.json"; d=json.load(open(f)); d["mod"]=int(time.time()); json.dump(d, open(f,"w"))'
+        echo "Updated meta.json mod time to current timestamp."
 
-      - name: Upload Artifact (für Pushes)
-        uses: actions/upload-artifact@v4
-        with:
-          name: anki-addon-package
-          path: Anki_ID_Copy.ankiaddon
+    # 3. .ankiaddon Datei erstellen (zippen)
+    - name: Create .ankiaddon file
+      run: |
+        # Zippt alles im aktuellen Ordner, schließt aber Git-Dateien und Tests aus
+        zip -r Anki_ID_Copy.ankiaddon . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" "README.md" "*.ui" "screenshots/*"
 
-      - name: Upload to Release (nur bei Releases)
-        if: github.event_name == 'release'
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: Anki_ID_Copy.ankiaddon
-          asset_name: Anki_ID_Copy.ankiaddon
-          tag: ${{ github.ref }}
-          overwrite: true
+    # 4. Upload als Artifact (damit du es direkt herunterladen kannst)
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Anki_ID_Copy-latest
+        path: Anki_ID_Copy.ankiaddon
+
+    # 5. Automatisch an das Release anhängen (nur wenn du ein Release erstellst)
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: Anki_ID_Copy.ankiaddon
+        asset_name: Anki_ID_Copy.ankiaddon
+        tag: ${{ github.ref }}
+        overwrite: true
