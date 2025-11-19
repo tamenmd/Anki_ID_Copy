@@ -1,0 +1,37 @@
+name: Build Anki Add-on
+on:
+  release:
+    types: [created]
+  # Optional: Auch bei jedem Push auf main bauen (zum Testen)
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create .ankiaddon file
+        run: |
+          # Zip erstellen, aber git-Dateien und unnötiges Zeug ausschließen
+          # Wir nennen die Datei einfach 'Anki_ID_Copy.ankiaddon'
+          zip -r Anki_ID_Copy.ankiaddon . -x "*.git*" ".gitignore" ".gitattributes" ".github/*" "screenshots/*" "README.md"
+
+      - name: Upload Artifact (für Pushes)
+        uses: actions/upload-artifact@v4
+        with:
+          name: anki-addon-package
+          path: Anki_ID_Copy.ankiaddon
+
+      - name: Upload to Release (nur bei Releases)
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: Anki_ID_Copy.ankiaddon
+          asset_name: Anki_ID_Copy.ankiaddon
+          tag: ${{ github.ref }}
+          overwrite: true
