@@ -34,12 +34,12 @@ jobs:
     # 4. .ankiaddon Datei erstellen (nur die Dateien, die ins Add-on gehören)
     #    Bewusst OHNE meta.json: die verwaltet Anki lokal pro Installation.
     - name: Create .ankiaddon file
-      run: zip Anki_ID_Copy.ankiaddon __init__.py nid_tools.py manifest.json
+      run: zip Anki_ID_Copy.ankiaddon __init__.py nid_tools.py manifest.json config.json config.md
 
     # 5. Archiv-Inhalt verifizieren (verhindert kaputte Releases)
     - name: Verify archive contents
       run: |
-        for f in __init__.py nid_tools.py manifest.json; do
+        for f in __init__.py nid_tools.py manifest.json config.json config.md; do
           unzip -l Anki_ID_Copy.ankiaddon | grep -q "$f" || { echo "FEHLT im Archiv: $f"; exit 1; }
         done
         echo "Archiv enthält alle Pflichtdateien."

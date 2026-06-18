@@ -17,6 +17,7 @@ from aqt.qt import (
     QPushButton,
     QLabel,
     QAction,
+    QKeySequence,
     Qt,
 )
 
@@ -29,6 +30,30 @@ try:
 except AttributeError:
     # PyQt5
     WINDOW_STAYS_ON_TOP = Qt.WindowStaysOnTopHint
+
+# --- Konfiguration ---
+DEFAULT_CONFIG = {
+    "copy_shortcut": "Ctrl+Alt+C",
+    "search_format": "compact",
+}
+
+
+def get_config():
+    """Return the merged add-on config, with defaults as a safety net."""
+    user_cfg = {}
+    try:
+        user_cfg = mw.addonManager.getConfig(__name__) or {}
+    except Exception:
+        user_cfg = {}
+    merged = dict(DEFAULT_CONFIG)
+    merged.update({k: v for k, v in user_cfg.items() if v is not None})
+    return merged
+
+
+def use_compact_format():
+    """True unless the user explicitly chose the verbose 'or' format."""
+    return str(get_config().get("search_format", "compact")).lower() != "or"
+
 
 # --- Übersetzungen ---
 LANGUAGES = {
@@ -104,7 +129,7 @@ def copy_note_ids_as_search_string(browser: Browser):
         # Keine Meldung anzeigen, um Pop-up zu vermeiden
         return
 
-    final_search_string = build_search_string(selected_nids)
+    final_search_string = build_search_string(selected_nids, compact=use_compact_format())
     set_clipboard_text(final_search_string)
 
     preview = final_search_string[:50]
@@ -199,7 +224,7 @@ class NIDCompareDialog(QDialog):
 # -----------------------------------------------------------------------------
 def show_nid_compare_dialog_and_compare(browser: Browser):
     selected_nids = browser.selectedNotes()
-    initial_your_nids_text = build_search_string(selected_nids) if selected_nids else ""
+    initial_your_nids_text = build_search_string(selected_nids, compact=use_compact_format()) if selected_nids else ""
 
     dialog = NIDCompareDialog(mw, get_localized_text, initial_your_nids_text)
     if dialog.exec():
@@ -230,13 +255,36 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
         if not missing_nids:
             tooltip(get_localized_text("no_missing_cards"))
         else:
-            final_missing_search_string = build_search_string(sorted(missing_nids))
+            final_missing_search_string = build_search_string(sorted(missing_nids), compact=use_compact_format())
             try:
                 browser.search_for(final_missing_search_string)
             except AttributeError:
                 browser.setFilter(final_missing_search_string)
             set_clipboard_text(final_missing_search_string)
             tooltip(get_localized_text("missing_cards_found", num_missing=len(missing_nids)))
+
+# -----------------------------------------------------------------------------
+# Persistente Copy-Aktion (damit der Shortcut wirkt UND im Menü angezeigt wird)
+# -----------------------------------------------------------------------------
+def get_or_create_copy_action(browser):
+    """Return a persistent copy QAction for this browser, creating it once.
+
+    Registering it on the browser window makes the configured shortcut active
+    window-wide; reusing the same action in the context menu shows the shortcut
+    next to the entry and avoids a duplicate/ambiguous shortcut binding.
+    """
+    existing = getattr(browser, "_ankiidcopy_copy_action", None)
+    if existing is not None:
+        return existing
+
+    action = QAction(get_localized_text("menu_item_copy"), browser)
+    shortcut = (get_config().get("copy_shortcut") or "").strip()
+    if shortcut:
+        action.setShortcut(QKeySequence(shortcut))
+    action.triggered.connect(lambda: copy_note_ids_as_search_string(browser))
+    browser.addAction(action)
+    browser._ankiidcopy_copy_action = action
+    return action
 
 # -----------------------------------------------------------------------------
 # Kontextmenü-Integration
@@ -255,11 +303,8 @@ def on_browser_will_show_context_menu(browser, menu):
 
     menu.addAction(header)
 
-    # Eintrag: menu_item_copy
-    action_copy = QAction(get_localized_text("menu_item_copy"), browser)
-    action_copy.triggered.connect(lambda: copy_note_ids_as_search_string(browser))
-    action_copy.setEnabled(bool(browser.selectedNotes()))
-    menu.addAction(action_copy)
+    # Eintrag: menu_item_copy — persistente Aktion mit Shortcut-Anzeige
+    menu.addAction(get_or_create_copy_action(browser))
 
     # Eintrag: menu_item_compare
     action_compare = QAction(get_localized_text("menu_item_compare"), browser)
@@ -271,4 +316,7 @@ def on_browser_will_show_context_menu(browser, menu):
     # optional: Trennung nach dem Block
     menu.addSeparator()
 
+
+# Shortcut früh registrieren, damit er auch ohne geöffnetes Kontextmenü wirkt.
+gui_hooks.browser_will_show.append(get_or_create_copy_action)
 gui_hooks.browser_will_show_context_menu.append(on_browser_will_show_context_menu)
