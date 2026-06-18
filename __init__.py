@@ -21,6 +21,7 @@ from aqt.qt import (
     QComboBox,
     QScrollArea,
     QWidget,
+    QFrame,
     Qt,
 )
 
@@ -78,10 +79,10 @@ LANGUAGES = {
         "clipboard_empty": "Die Zwischenablage ist leer oder enthält keinen Text.",
         "result_dialog_title": "Vergleichsergebnis",
         "result_totals": "Deine IDs: {your}  ·  Freundes IDs: {friend}",
-        "region_missing_present": "Fehlend – in deiner Sammlung vorhanden (z. B. suspendiert): {count}",
-        "region_missing_absent": "Fehlend – gar nicht in deiner Sammlung: {count}",
-        "region_extra": "Zusätzlich – du hast, Freund nicht: {count}",
-        "region_shared": "Gemeinsam: {count}",
+        "region_missing_present": "Fehlend – in deiner Sammlung vorhanden (z. B. suspendiert)",
+        "region_missing_absent": "Fehlend – gar nicht in deiner Sammlung",
+        "region_extra": "Zusätzlich – du hast, Freund nicht",
+        "region_shared": "Gemeinsam",
         "btn_show": "Im Browser zeigen",
         "btn_copy": "Kopieren",
         "close_button": "Schließen",
@@ -112,10 +113,10 @@ LANGUAGES = {
         "clipboard_empty": "The clipboard is empty or does not contain any text.",
         "result_dialog_title": "Comparison Result",
         "result_totals": "Your IDs: {your}  ·  Friend's IDs: {friend}",
-        "region_missing_present": "Missing – present in your collection (e.g. suspended): {count}",
-        "region_missing_absent": "Missing – not in your collection at all: {count}",
-        "region_extra": "Extra – you have, friend doesn't: {count}",
-        "region_shared": "Shared: {count}",
+        "region_missing_present": "Missing – present in your collection (e.g. suspended)",
+        "region_missing_absent": "Missing – not in your collection at all",
+        "region_extra": "Extra – you have, friend doesn't",
+        "region_shared": "Shared",
         "btn_show": "Show in browser",
         "btn_copy": "Copy",
         "close_button": "Close",
@@ -324,19 +325,104 @@ COVERAGE_MAX_GROUPS = 40
 
 
 # -----------------------------------------------------------------------------
+# UI-Styling: theme-sichere Akzentfarben (hell & dunkel) + Stylesheet-Helfer
+# -----------------------------------------------------------------------------
+try:
+    POINTING_CURSOR = Qt.CursorShape.PointingHandCursor
+except AttributeError:
+    POINTING_CURSOR = Qt.PointingHandCursor
+
+# Akzent je Region als (hell, dunkel) — auf beiden Untergründen gut lesbar.
+_REGION_ACCENTS = {
+    "region_missing_present": {"light": (201, 122, 0), "dark": (229, 181, 103)},   # amber
+    "region_missing_absent": {"light": (199, 70, 70), "dark": (224, 108, 117)},    # rot
+    "region_extra": {"light": (45, 110, 200), "dark": (97, 175, 239)},             # blau
+    "region_shared": {"light": (47, 145, 87), "dark": (152, 195, 121)},            # grün
+}
+
+
+def is_night_mode():
+    try:
+        from aqt.theme import theme_manager
+        return bool(theme_manager.night_mode)
+    except Exception:
+        return False
+
+
+def accent_rgb(region_key):
+    entry = _REGION_ACCENTS.get(region_key, {"light": (120, 120, 120), "dark": (150, 150, 150)})
+    return entry["dark" if is_night_mode() else "light"]
+
+
+def _css_hex(rgb):
+    return "#%02x%02x%02x" % tuple(rgb)
+
+
+def _readable_text_on(rgb):
+    # Luminanz-basiert: dunkler Text auf hellem Akzent, sonst weiß.
+    luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+    return "#1b1b1b" if luminance > 150 else "#ffffff"
+
+
+def _elide(text, max_len=58):
+    return text if len(text) <= max_len else text[: max_len - 1] + "…"
+
+
+def base_stylesheet():
+    # Nur halbtransparente Grautöne + Schrift: funktioniert auf hell UND dunkel,
+    # ohne feste Hinter-/Vordergrundfarben zu erzwingen.
+    return (
+        "QLabel#aic_title { font-size: 15pt; font-weight: 600; }"
+        "QLabel#aic_subtitle { color: rgba(127,127,127,0.95); }"
+        "QLabel#aic_region { font-weight: 600; }"
+        "QPushButton#aic_btn {"
+        "  background-color: rgba(127,127,127,0.10);"
+        "  border: 1px solid rgba(127,127,127,0.28);"
+        "  border-radius: 6px; padding: 4px 12px; }"
+        "QPushButton#aic_btn:hover { background-color: rgba(127,127,127,0.22); }"
+        "QPushButton#aic_btn:pressed { background-color: rgba(127,127,127,0.32); }"
+        "QPushButton#aic_btn:disabled {"
+        "  color: rgba(127,127,127,0.55); border-color: rgba(127,127,127,0.12); }"
+    )
+
+
+def make_badge(text, rgb):
+    badge = QLabel(text)
+    badge.setStyleSheet(
+        "QLabel { background-color: %s; color: %s; border-radius: 9px;"
+        " padding: 1px 10px; font-weight: 600; }"
+        % (_css_hex(rgb), _readable_text_on(rgb))
+    )
+    return badge
+
+
+def make_action_button(text):
+    button = QPushButton(text)
+    button.setObjectName("aic_btn")
+    button.setAutoDefault(False)
+    button.setDefault(False)
+    button.setCursor(POINTING_CURSOR)
+    return button
+
+
+# -----------------------------------------------------------------------------
 # Aufschlüsselungs-Fenster: Coverage einer Region nach Deck oder Tag
 # -----------------------------------------------------------------------------
 class NICoverageBreakdownDialog(QDialog):
-    def __init__(self, browser, region_label, region_nids, get_localized_text_func):
+    def __init__(self, browser, region_key, region_label, region_nids, get_localized_text_func):
         super().__init__(browser)
         self.browser = browser
         self.t = get_localized_text_func
+        self.accent = accent_rgb(region_key)
         self.region_nids = sorted(region_nids)
         self.region_search = build_search_string(self.region_nids, compact=use_compact_format())
         self.setWindowTitle(self.t("breakdown_title", region=region_label))
         self.setWindowFlags(self.windowFlags() | WINDOW_STAYS_ON_TOP)
+        self.setStyleSheet(base_stylesheet())
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
 
         top_row = QHBoxLayout()
         top_row.addWidget(QLabel(self.t("group_by_label")))
@@ -352,10 +438,11 @@ class NICoverageBreakdownDialog(QDialog):
         self.scroll.setWidgetResizable(True)
         self.rows_container = QWidget()
         self.rows_layout = QVBoxLayout(self.rows_container)
+        self.rows_layout.setSpacing(4)
         self.scroll.setWidget(self.rows_container)
         layout.addWidget(self.scroll)
 
-        close_button = QPushButton(self.t("close_button"))
+        close_button = make_action_button(self.t("close_button"))
         close_button.clicked.connect(self.close)
         close_row = QHBoxLayout()
         close_row.addStretch(1)
@@ -363,7 +450,7 @@ class NICoverageBreakdownDialog(QDialog):
         layout.addLayout(close_row)
 
         self.setLayout(layout)
-        self.resize(640, 460)
+        self.resize(580, 480)
         self._rebuild()
 
     def _rebuild(self):
@@ -382,26 +469,34 @@ class NICoverageBreakdownDialog(QDialog):
         rest = groups[COVERAGE_MAX_GROUPS:]
         if rest:
             rest_notes = sum(count for _, count, _ in rest)
-            self.rows_layout.addWidget(
-                QLabel(self.t("breakdown_other", groups=len(rest), notes=rest_notes))
-            )
+            more = QLabel(self.t("breakdown_other", groups=len(rest), notes=rest_notes))
+            more.setObjectName("aic_subtitle")
+            self.rows_layout.addWidget(more)
         self.rows_layout.addStretch(1)
 
     def _make_row(self, label, count, clause):
-        container = QWidget()
+        container = QFrame()
+        container.setObjectName("aic_row")
+        container.setStyleSheet(
+            "QFrame#aic_row { background-color: rgba(127,127,127,0.06);"
+            " border: 1px solid rgba(127,127,127,0.14); border-radius: 6px; }"
+        )
         row = QHBoxLayout(container)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(QLabel("%s — %d" % (label, count)))
+        row.setContentsMargins(10, 5, 8, 5)
+        row.setSpacing(8)
+
+        name = QLabel(_elide(label))
+        name.setToolTip(label)
+        row.addWidget(name)
         row.addStretch(1)
+        row.addWidget(make_badge(str(count), self.accent))
 
         if self.region_search and clause:
             search = "(%s) (%s)" % (clause, self.region_search)
         else:
             search = clause or self.region_search
 
-        show_button = QPushButton(self.t("btn_show"))
-        show_button.setAutoDefault(False)
-        show_button.setDefault(False)
+        show_button = make_action_button(self.t("btn_show"))
         show_button.setEnabled(bool(search))
         show_button.clicked.connect(lambda checked=False, s=search: self._show(s))
         row.addWidget(show_button)
@@ -424,19 +519,24 @@ class NIDCompareResultDialog(QDialog):
         self.t = get_localized_text_func
         self.setWindowTitle(self.t("result_dialog_title"))
         self.setWindowFlags(self.windowFlags() | WINDOW_STAYS_ON_TOP)
+        self.setStyleSheet(base_stylesheet())
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(9)
 
-        totals = QLabel(self.t("result_totals", your=your_count, friend=friend_count))
-        totals_font = totals.font()
-        totals_font.setBold(True)
-        totals.setFont(totals_font)
-        layout.addWidget(totals)
+        title = QLabel(self.t("result_dialog_title"))
+        title.setObjectName("aic_title")
+        layout.addWidget(title)
+
+        subtitle = QLabel(self.t("result_totals", your=your_count, friend=friend_count))
+        subtitle.setObjectName("aic_subtitle")
+        layout.addWidget(subtitle)
 
         for region in regions:
             self._add_region(layout, region)
 
-        close_button = QPushButton(self.t("close_button"))
+        close_button = make_action_button(self.t("close_button"))
         close_button.clicked.connect(self.close)
         close_row = QHBoxLayout()
         close_row.addStretch(1)
@@ -444,53 +544,71 @@ class NIDCompareResultDialog(QDialog):
         layout.addLayout(close_row)
 
         self.setLayout(layout)
-        self.resize(820, 280)
+        self.resize(640, 440)
 
     def _add_region(self, layout, region):
         nids = region["nids"]
+        key = region["key"]
         allow_show = region["allow_show"]
         suspended = region.get("suspended")  # set, or None when not locally owned
         has_items = bool(nids)
+        count = len(nids)
         search = build_search_string(sorted(nids), compact=use_compact_format())
+        accent = accent_rgb(key)
 
-        row = QHBoxLayout()
-        row.addWidget(QLabel(self.t(region["key"], count=len(nids))))
-        row.addStretch(1)
+        card = QFrame()
+        card.setObjectName("aic_card")
+        card.setStyleSheet(
+            "QFrame#aic_card { background-color: rgba(127,127,127,0.07);"
+            " border: 1px solid rgba(127,127,127,0.18);"
+            " border-left: 4px solid %s; border-radius: 8px; }" % _css_hex(accent)
+        )
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(12, 9, 12, 9)
+        card_layout.setSpacing(7)
 
-        # Aufschlüsseln + Suspendierte (nur für lokal vorhandene Regionen)
+        # Kopfzeile: Regionsname + Anzahl-Badge
+        head = QHBoxLayout()
+        name = QLabel(self.t(key))
+        name.setObjectName("aic_region")
+        head.addWidget(name)
+        head.addStretch(1)
+        head.addWidget(make_badge(str(count), accent))
+        card_layout.addLayout(head)
+
+        # Aktionszeile (rechtsbündig)
+        actions = QHBoxLayout()
+        actions.setSpacing(6)
+        actions.addStretch(1)
+
         if suspended is not None:
-            region_label = self.t(region["key"], count=len(nids))
-            breakdown_button = QPushButton(self.t("btn_breakdown"))
-            breakdown_button.setAutoDefault(False)
-            breakdown_button.setDefault(False)
+            region_label = self.t(key)
+            breakdown_button = make_action_button(self.t("btn_breakdown"))
             breakdown_button.setEnabled(has_items)
             breakdown_button.clicked.connect(
-                lambda checked=False, lbl=region_label, ns=frozenset(nids): self._open_breakdown(lbl, ns)
+                lambda checked=False, k=key, lbl=region_label, ns=frozenset(nids): self._open_breakdown(k, lbl, ns)
             )
-            row.addWidget(breakdown_button)
+            actions.addWidget(breakdown_button)
 
-            susp_button = QPushButton(self.t("btn_suspended", count=len(suspended)))
-            susp_button.setAutoDefault(False)
-            susp_button.setDefault(False)
+            susp_button = make_action_button(self.t("btn_suspended", count=len(suspended)))
             susp_button.setEnabled(bool(suspended))
             susp_button.clicked.connect(
                 lambda checked=False, s=search: self._show("is:suspended (" + s + ")")
             )
-            row.addWidget(susp_button)
+            actions.addWidget(susp_button)
 
-        show_button = QPushButton(self.t("btn_show"))
-        copy_button = QPushButton(self.t("btn_copy"))
-        for button in (show_button, copy_button):
-            button.setAutoDefault(False)
-            button.setDefault(False)
+        show_button = make_action_button(self.t("btn_show"))
         show_button.setEnabled(has_items and allow_show)
-        copy_button.setEnabled(has_items)
         show_button.clicked.connect(lambda checked=False, s=search: self._show(s))
-        copy_button.clicked.connect(lambda checked=False, s=search, n=len(nids): self._copy(s, n))
+        actions.addWidget(show_button)
 
-        row.addWidget(show_button)
-        row.addWidget(copy_button)
-        layout.addLayout(row)
+        copy_button = make_action_button(self.t("btn_copy"))
+        copy_button.setEnabled(has_items)
+        copy_button.clicked.connect(lambda checked=False, s=search, n=count: self._copy(s, n))
+        actions.addWidget(copy_button)
+
+        card_layout.addLayout(actions)
+        layout.addWidget(card)
 
     def _show(self, search):
         try:
@@ -502,8 +620,8 @@ class NIDCompareResultDialog(QDialog):
         set_clipboard_text(search)
         tooltip(self.t("region_copied", count=count))
 
-    def _open_breakdown(self, region_label, region_nids):
-        dialog = NICoverageBreakdownDialog(self.browser, region_label, region_nids, self.t)
+    def _open_breakdown(self, region_key, region_label, region_nids):
+        dialog = NICoverageBreakdownDialog(self.browser, region_key, region_label, region_nids, self.t)
         if not hasattr(self.browser, "_ankiidcopy_breakdowns"):
             self.browser._ankiidcopy_breakdowns = []
         self.browser._ankiidcopy_breakdowns.append(dialog)
