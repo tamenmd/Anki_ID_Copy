@@ -68,6 +68,9 @@ LANGUAGES = {
 
         # Dialogtexte
         "compare_dialog_title": "Notiz-IDs vergleichen",
+        "compare_help": "Füge links deine und rechts die Notiz-IDs deines Freundes ein. Du bekommst danach eine Auswertung: welche Notizen dir fehlen, welche du zusätzlich hast und welche gemeinsam sind.",
+        "your_placeholder": "z. B. nid:123,456 — oder eine ID pro Zeile",
+        "friend_placeholder": "IDs deines Freundes einfügen (Button oben rechts oder Strg+V)",
         "your_nids_label": "Deine Notiz-IDs (die du hast):",
         "friend_nids_label": "Notiz-IDs deines Freundes (die er hat):",
         "friend_paste_button": "Aus Zwischenablage einfügen",
@@ -102,6 +105,9 @@ LANGUAGES = {
 
         # Dialog texts
         "compare_dialog_title": "Compare Note IDs",
+        "compare_help": "Paste your Note IDs on the left and your friend's on the right. You'll then get a breakdown: which notes you're missing, which you have extra, and which you share.",
+        "your_placeholder": "e.g. nid:123,456 — or one ID per line",
+        "friend_placeholder": "Paste your friend's IDs (button top-right or Ctrl+V)",
         "your_nids_label": "Your Note IDs (that you have):",
         "friend_nids_label": "Friend's Note IDs (that they have):",
         "friend_paste_button": "Paste from clipboard",
@@ -187,51 +193,85 @@ class NIDCompareDialog(QDialog):
         self.setWindowTitle(self.get_localized_text("compare_dialog_title"))
         # Fenster bleibt oben (PyQt5 + PyQt6 kompatibel)
         self.setWindowFlags(self.windowFlags() | WINDOW_STAYS_ON_TOP)
+        self.setStyleSheet(base_stylesheet())
 
         self.your_nids_text_edit = QTextEdit()
+        self.your_nids_text_edit.setObjectName("aic_input")
+        self.your_nids_text_edit.setPlaceholderText(self.get_localized_text("your_placeholder"))
         self.friend_nids_text_edit = QTextEdit()
+        self.friend_nids_text_edit.setObjectName("aic_input")
+        self.friend_nids_text_edit.setPlaceholderText(self.get_localized_text("friend_placeholder"))
 
         # Setze den initialen Text für deine NIDs
         self.your_nids_text_edit.setPlainText(initial_your_nids_text)
 
-        self.compare_button = QPushButton(self.get_localized_text("compare_button"))
-        self.cancel_button = QPushButton(self.get_localized_text("cancel_button"))
+        self.friend_paste_button = make_action_button(self.get_localized_text("friend_paste_button"))
+        self.compare_button = make_primary_button(self.get_localized_text("compare_button"))
+        self.cancel_button = make_action_button(self.get_localized_text("cancel_button"))
 
         self.init_ui()
 
+    def _make_input_card(self, label_text, text_edit, accent, extra_header_widget=None):
+        card = QFrame()
+        card.setObjectName("aic_card")
+        card.setStyleSheet(
+            "QFrame#aic_card { background-color: rgba(127,127,127,0.05);"
+            " border: 1px solid rgba(127,127,127,0.18);"
+            " border-left: 4px solid %s; border-radius: 8px; }" % _css_hex(accent)
+        )
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(12, 9, 12, 9)
+        card_layout.setSpacing(7)
+
+        header = QHBoxLayout()
+        label = QLabel(label_text)
+        label.setObjectName("aic_region")
+        header.addWidget(label)
+        header.addStretch(1)
+        if extra_header_widget is not None:
+            header.addWidget(extra_header_widget)
+        card_layout.addLayout(header)
+        card_layout.addWidget(text_edit)
+        return card
+
     def init_ui(self):
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setSpacing(10)
+
+        title = QLabel(self.get_localized_text("compare_dialog_title"))
+        title.setObjectName("aic_title")
+        main_layout.addWidget(title)
+
+        help_label = QLabel(self.get_localized_text("compare_help"))
+        help_label.setObjectName("aic_subtitle")
+        help_label.setWordWrap(True)
+        main_layout.addWidget(help_label)
+
         input_layout = QHBoxLayout()
-
-        # Linke Seite: Deine IDs
-        your_nids_layout = QVBoxLayout()
-        your_nids_layout.addWidget(QLabel(self.get_localized_text("your_nids_label")))
-        your_nids_layout.addWidget(self.your_nids_text_edit)
-        input_layout.addLayout(your_nids_layout)
-
-        # Rechte Seite: Freunds IDs
-        friend_nids_layout = QVBoxLayout()
-        friend_label_row = QHBoxLayout()
-        friend_label_row.addWidget(QLabel(self.get_localized_text("friend_nids_label")))
-        friend_label_row.addStretch(1)
-        self.friend_paste_button = QPushButton(self.get_localized_text("friend_paste_button"))
-        self.friend_paste_button.setAutoDefault(False)
-        self.friend_paste_button.setDefault(False)
-        friend_label_row.addWidget(self.friend_paste_button)
-        friend_nids_layout.addLayout(friend_label_row)
-        friend_nids_layout.addWidget(self.friend_nids_text_edit)
-        input_layout.addLayout(friend_nids_layout)
-
+        input_layout.setSpacing(10)
+        input_layout.addWidget(self._make_input_card(
+            self.get_localized_text("your_nids_label"),
+            self.your_nids_text_edit,
+            accent_rgb("region_extra"),
+        ))
+        input_layout.addWidget(self._make_input_card(
+            self.get_localized_text("friend_nids_label"),
+            self.friend_nids_text_edit,
+            accent_rgb("region_shared"),
+            extra_header_widget=self.friend_paste_button,
+        ))
         main_layout.addLayout(input_layout)
 
-        # Buttons
+        # Buttons (rechtsbündig): Abbrechen sekundär, Vergleichen primär
         button_layout = QHBoxLayout()
-        button_layout.addStretch(1)  # Schiebt Buttons nach rechts
-        button_layout.addWidget(self.compare_button)
+        button_layout.addStretch(1)
         button_layout.addWidget(self.cancel_button)
+        button_layout.addWidget(self.compare_button)
         main_layout.addLayout(button_layout)
 
         self.setLayout(main_layout)
+        self.resize(680, 440)
 
         self.compare_button.clicked.connect(self.accept)
         self.cancel_button.clicked.connect(self.reject)
@@ -358,6 +398,10 @@ def _css_hex(rgb):
     return "#%02x%02x%02x" % tuple(rgb)
 
 
+def _shift(rgb, delta):
+    return tuple(max(0, min(255, c + delta)) for c in rgb)
+
+
 def _readable_text_on(rgb):
     # Luminanz-basiert: dunkler Text auf hellem Akzent, sonst weiß.
     luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
@@ -383,6 +427,8 @@ def base_stylesheet():
         "QPushButton#aic_btn:pressed { background-color: rgba(127,127,127,0.32); }"
         "QPushButton#aic_btn:disabled {"
         "  color: rgba(127,127,127,0.55); border-color: rgba(127,127,127,0.12); }"
+        "QTextEdit#aic_input { border: 1px solid rgba(127,127,127,0.28);"
+        "  border-radius: 6px; padding: 4px; }"
     )
 
 
@@ -402,6 +448,28 @@ def make_action_button(text):
     button.setAutoDefault(False)
     button.setDefault(False)
     button.setCursor(POINTING_CURSOR)
+    return button
+
+
+def make_primary_button(text):
+    rgb = accent_rgb("region_extra")  # blauer Akzent für die Hauptaktion
+    button = QPushButton(text)
+    button.setObjectName("aic_primary")
+    button.setStyleSheet(
+        "QPushButton#aic_primary { background-color: %s; color: %s; border: none;"
+        " border-radius: 6px; padding: 5px 18px; font-weight: 600; }"
+        "QPushButton#aic_primary:hover { background-color: %s; }"
+        "QPushButton#aic_primary:pressed { background-color: %s; }"
+        % (
+            _css_hex(rgb),
+            _readable_text_on(rgb),
+            _css_hex(_shift(rgb, 18)),
+            _css_hex(_shift(rgb, -12)),
+        )
+    )
+    button.setCursor(POINTING_CURSOR)
+    button.setAutoDefault(True)
+    button.setDefault(True)
     return button
 
 
