@@ -18,10 +18,13 @@ from aqt.qt import (
     QLabel,
     QAction,
     QKeySequence,
+    QComboBox,
+    QScrollArea,
+    QWidget,
     Qt,
 )
 
-from .nid_tools import parse_nids_from_text, build_search_string, compute_diff
+from .nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts
 
 # --- Kompatibilitätsschicht für PyQt5/PyQt6 ---
 try:
@@ -83,7 +86,13 @@ LANGUAGES = {
         "btn_copy": "Kopieren",
         "close_button": "Schließen",
         "region_copied": "{count} IDs kopiert.",
-        "btn_suspended": "Suspendierte zeigen ({count})"
+        "btn_suspended": "Suspendierte zeigen ({count})",
+        "btn_breakdown": "Aufschlüsseln",
+        "breakdown_title": "Aufschlüsselung: {region}",
+        "group_by_label": "Gruppieren nach:",
+        "group_by_deck": "Deck (Fach)",
+        "group_by_tag": "Tag",
+        "breakdown_other": "… {groups} weitere Gruppen ({notes} Notizen)"
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
@@ -111,7 +120,13 @@ LANGUAGES = {
         "btn_copy": "Copy",
         "close_button": "Close",
         "region_copied": "{count} IDs copied.",
-        "btn_suspended": "Show suspended ({count})"
+        "btn_suspended": "Show suspended ({count})",
+        "btn_breakdown": "Break down",
+        "breakdown_title": "Breakdown: {region}",
+        "group_by_label": "Group by:",
+        "group_by_deck": "Deck (subject)",
+        "group_by_tag": "Tag",
+        "breakdown_other": "… {groups} more groups ({notes} notes)"
     }
 }
 
@@ -265,6 +280,140 @@ def find_suspended_nids(col, nids):
     return _find_notes(col, search) & set(nids)
 
 
+def compute_coverage(col, nids, mode):
+    """Group ``nids`` for the coverage breakdown.
+
+    Returns a list of ``(label, count, search_clause)`` sorted by count desc.
+    ``mode == "deck"`` assigns each note to the deck of its first card (so each
+    note lands in exactly one group). ``mode == "tag"`` lets each note count
+    once per tag it carries.
+    """
+    if not nids:
+        return []
+    id_list = ",".join(str(int(n)) for n in nids)
+    pairs = []
+    clause_for = {}
+    try:
+        if mode == "tag":
+            for note_id, tag_str in col.db.all(
+                "select id, tags from notes where id in (%s)" % id_list
+            ):
+                for tag in (tag_str or "").split():
+                    pairs.append((tag, int(note_id)))
+                    clause_for[tag] = 'tag:"%s"' % tag
+        else:  # deck
+            first_did = {}
+            for note_id, did in col.db.all(
+                "select nid, did from cards where nid in (%s)" % id_list
+            ):
+                first_did.setdefault(int(note_id), int(did))
+            for note_id, did in first_did.items():
+                name = col.decks.name(did)
+                pairs.append((name, note_id))
+                clause_for[name] = 'deck:"%s"' % name
+    except Exception:
+        return []
+    return [
+        (label, count, clause_for.get(label, ""))
+        for label, count in group_counts(pairs)
+    ]
+
+
+# Wie viele Gruppen maximal im Aufschlüsselungs-Fenster gelistet werden.
+COVERAGE_MAX_GROUPS = 40
+
+
+# -----------------------------------------------------------------------------
+# Aufschlüsselungs-Fenster: Coverage einer Region nach Deck oder Tag
+# -----------------------------------------------------------------------------
+class NICoverageBreakdownDialog(QDialog):
+    def __init__(self, browser, region_label, region_nids, get_localized_text_func):
+        super().__init__(browser)
+        self.browser = browser
+        self.t = get_localized_text_func
+        self.region_nids = sorted(region_nids)
+        self.region_search = build_search_string(self.region_nids, compact=use_compact_format())
+        self.setWindowTitle(self.t("breakdown_title", region=region_label))
+        self.setWindowFlags(self.windowFlags() | WINDOW_STAYS_ON_TOP)
+
+        layout = QVBoxLayout()
+
+        top_row = QHBoxLayout()
+        top_row.addWidget(QLabel(self.t("group_by_label")))
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItem(self.t("group_by_deck"), "deck")
+        self.mode_combo.addItem(self.t("group_by_tag"), "tag")
+        self.mode_combo.currentIndexChanged.connect(self._rebuild)
+        top_row.addWidget(self.mode_combo)
+        top_row.addStretch(1)
+        layout.addLayout(top_row)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.rows_container = QWidget()
+        self.rows_layout = QVBoxLayout(self.rows_container)
+        self.scroll.setWidget(self.rows_container)
+        layout.addWidget(self.scroll)
+
+        close_button = QPushButton(self.t("close_button"))
+        close_button.clicked.connect(self.close)
+        close_row = QHBoxLayout()
+        close_row.addStretch(1)
+        close_row.addWidget(close_button)
+        layout.addLayout(close_row)
+
+        self.setLayout(layout)
+        self.resize(640, 460)
+        self._rebuild()
+
+    def _rebuild(self):
+        while self.rows_layout.count():
+            item = self.rows_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        mode = self.mode_combo.currentData()
+        groups = compute_coverage(mw.col, self.region_nids, mode)
+
+        for label, count, clause in groups[:COVERAGE_MAX_GROUPS]:
+            self.rows_layout.addWidget(self._make_row(label, count, clause))
+
+        rest = groups[COVERAGE_MAX_GROUPS:]
+        if rest:
+            rest_notes = sum(count for _, count, _ in rest)
+            self.rows_layout.addWidget(
+                QLabel(self.t("breakdown_other", groups=len(rest), notes=rest_notes))
+            )
+        self.rows_layout.addStretch(1)
+
+    def _make_row(self, label, count, clause):
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(QLabel("%s — %d" % (label, count)))
+        row.addStretch(1)
+
+        if self.region_search and clause:
+            search = "(%s) (%s)" % (clause, self.region_search)
+        else:
+            search = clause or self.region_search
+
+        show_button = QPushButton(self.t("btn_show"))
+        show_button.setAutoDefault(False)
+        show_button.setDefault(False)
+        show_button.setEnabled(bool(search))
+        show_button.clicked.connect(lambda checked=False, s=search: self._show(s))
+        row.addWidget(show_button)
+        return container
+
+    def _show(self, search):
+        try:
+            self.browser.search_for(search)
+        except AttributeError:
+            self.browser.setFilter(search)
+
+
 # -----------------------------------------------------------------------------
 # Ergebnis-Scorecard: zeigt alle Diff-Regionen mit klickbaren Aktionen
 # -----------------------------------------------------------------------------
@@ -295,7 +444,7 @@ class NIDCompareResultDialog(QDialog):
         layout.addLayout(close_row)
 
         self.setLayout(layout)
-        self.resize(680, 260)
+        self.resize(820, 280)
 
     def _add_region(self, layout, region):
         nids = region["nids"]
@@ -308,8 +457,18 @@ class NIDCompareResultDialog(QDialog):
         row.addWidget(QLabel(self.t(region["key"], count=len(nids))))
         row.addStretch(1)
 
-        # Suspendierte Notizen dieser Region (nur für lokal vorhandene Regionen)
+        # Aufschlüsseln + Suspendierte (nur für lokal vorhandene Regionen)
         if suspended is not None:
+            region_label = self.t(region["key"], count=len(nids))
+            breakdown_button = QPushButton(self.t("btn_breakdown"))
+            breakdown_button.setAutoDefault(False)
+            breakdown_button.setDefault(False)
+            breakdown_button.setEnabled(has_items)
+            breakdown_button.clicked.connect(
+                lambda checked=False, lbl=region_label, ns=frozenset(nids): self._open_breakdown(lbl, ns)
+            )
+            row.addWidget(breakdown_button)
+
             susp_button = QPushButton(self.t("btn_suspended", count=len(suspended)))
             susp_button.setAutoDefault(False)
             susp_button.setDefault(False)
@@ -342,6 +501,13 @@ class NIDCompareResultDialog(QDialog):
     def _copy(self, search, count):
         set_clipboard_text(search)
         tooltip(self.t("region_copied", count=count))
+
+    def _open_breakdown(self, region_label, region_nids):
+        dialog = NICoverageBreakdownDialog(self.browser, region_label, region_nids, self.t)
+        if not hasattr(self.browser, "_ankiidcopy_breakdowns"):
+            self.browser._ankiidcopy_breakdowns = []
+        self.browser._ankiidcopy_breakdowns.append(dialog)
+        dialog.show()
 
 
 # -----------------------------------------------------------------------------
