@@ -8,8 +8,10 @@ on:
   release:
     types: [ created ]
 
+# Least privilege: Build/Test/Zip brauchen keinen Schreibzugriff.
+# Nur der release-gegatete Upload-Job bekommt contents: write (siehe unten).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -18,11 +20,11 @@ jobs:
     steps:
     # 1. Code herunterladen
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     # 2. Python bereitstellen
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.x'
 
@@ -38,25 +40,38 @@ jobs:
     - name: Create .ankiaddon file
       run: zip Anki_ID_Copy.ankiaddon __init__.py nid_tools.py manifest.json config.json config.md
 
-    # 5. Archiv-Inhalt verifizieren (verhindert kaputte Releases)
+    # 5. Archiv-Inhalt verifizieren (exakter Zeilenabgleich, verhindert kaputte Releases)
     - name: Verify archive contents
       run: |
         for f in __init__.py nid_tools.py manifest.json config.json config.md; do
-          unzip -l Anki_ID_Copy.ankiaddon | grep -q "$f" || { echo "FEHLT im Archiv: $f"; exit 1; }
+          unzip -Z1 Anki_ID_Copy.ankiaddon | grep -qxF "$f" || { echo "FEHLT im Archiv: $f"; exit 1; }
         done
         echo "Archiv enthält alle Pflichtdateien."
 
     # 6. Upload als Artifact (damit du es direkt herunterladen kannst)
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Anki_ID_Copy-latest
         path: Anki_ID_Copy.ankiaddon
 
-    # 7. Automatisch an das Release anhängen (nur wenn du ein Release erstellst)
+  # Eigener Job nur fürs Release: bekommt als Einziger Schreibrechte.
+  release:
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download built add-on
+      uses: actions/download-artifact@v8
+      with:
+        name: Anki_ID_Copy-latest
+
     - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: svenstaro/upload-release-action@v2
+      # SHA-gepinnt gegen Supply-Chain-Manipulation (entspricht v2.11.5).
+      uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: Anki_ID_Copy.ankiaddon
