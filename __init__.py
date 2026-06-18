@@ -21,7 +21,7 @@ from aqt.qt import (
     Qt,
 )
 
-from .nid_tools import parse_nids_from_text, build_search_string
+from .nid_tools import parse_nids_from_text, build_search_string, compute_diff
 
 # --- Kompatibilitätsschicht für PyQt5/PyQt6 ---
 try:
@@ -73,8 +73,16 @@ LANGUAGES = {
         "your_field_empty": "Bitte gib zuerst deine eigenen Notiz-IDs ein (oder wähle Karten im Browser aus), bevor du vergleichst.",
         "friend_field_empty": "Bitte füge die Notiz-IDs deines Freundes ein.",
         "clipboard_empty": "Die Zwischenablage ist leer oder enthält keinen Text.",
-        "no_missing_cards": "Du hast bereits alle Notizen deines Freundes!",
-        "missing_cards_found": "{num_missing} fehlende Notizen im Browser angezeigt. Suchstring in Zwischenablage kopiert."
+        "result_dialog_title": "Vergleichsergebnis",
+        "result_totals": "Deine IDs: {your}  ·  Freundes IDs: {friend}",
+        "region_missing_present": "Fehlend – in deiner Sammlung vorhanden (z. B. suspendiert): {count}",
+        "region_missing_absent": "Fehlend – gar nicht in deiner Sammlung: {count}",
+        "region_extra": "Zusätzlich – du hast, Freund nicht: {count}",
+        "region_shared": "Gemeinsam: {count}",
+        "btn_show": "Im Browser zeigen",
+        "btn_copy": "Kopieren",
+        "close_button": "Schließen",
+        "region_copied": "{count} IDs kopiert."
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
@@ -92,8 +100,16 @@ LANGUAGES = {
         "your_field_empty": "Please enter your own Note IDs first (or select cards in the browser) before comparing.",
         "friend_field_empty": "Please paste your friend's Note IDs.",
         "clipboard_empty": "The clipboard is empty or does not contain any text.",
-        "no_missing_cards": "You already have all of your friend's notes!",
-        "missing_cards_found": "{num_missing} missing notes displayed in browser. Search string copied to clipboard."
+        "result_dialog_title": "Comparison Result",
+        "result_totals": "Your IDs: {your}  ·  Friend's IDs: {friend}",
+        "region_missing_present": "Missing – present in your collection (e.g. suspended): {count}",
+        "region_missing_absent": "Missing – not in your collection at all: {count}",
+        "region_extra": "Extra – you have, friend doesn't: {count}",
+        "region_shared": "Shared: {count}",
+        "btn_show": "Show in browser",
+        "btn_copy": "Copy",
+        "close_button": "Close",
+        "region_copied": "{count} IDs copied."
     }
 }
 
@@ -220,6 +236,92 @@ class NIDCompareDialog(QDialog):
 
 
 # -----------------------------------------------------------------------------
+# Hilfsfunktion: welche der NIDs existieren tatsächlich in der Sammlung?
+# -----------------------------------------------------------------------------
+def find_existing_nids(col, nids):
+    """Return the subset of ``nids`` that actually exist in the collection."""
+    if not nids:
+        return set()
+    search = build_search_string(nids, compact=True)
+    finder = getattr(col, "find_notes", None) or getattr(col, "findNotes", None)
+    if finder is None:
+        return set()
+    try:
+        return set(int(n) for n in finder(search))
+    except Exception:
+        return set()
+
+
+# -----------------------------------------------------------------------------
+# Ergebnis-Scorecard: zeigt alle Diff-Regionen mit klickbaren Aktionen
+# -----------------------------------------------------------------------------
+class NIDCompareResultDialog(QDialog):
+    def __init__(self, browser, your_count, friend_count,
+                 present_missing, absent_missing, extra, shared,
+                 get_localized_text_func):
+        super().__init__(browser)
+        self.browser = browser
+        self.t = get_localized_text_func
+        self.setWindowTitle(self.t("result_dialog_title"))
+        self.setWindowFlags(self.windowFlags() | WINDOW_STAYS_ON_TOP)
+
+        layout = QVBoxLayout()
+
+        totals = QLabel(self.t("result_totals", your=your_count, friend=friend_count))
+        totals_font = totals.font()
+        totals_font.setBold(True)
+        totals.setFont(totals_font)
+        layout.addWidget(totals)
+
+        self._add_region(layout, "region_missing_present", present_missing, allow_show=True)
+        self._add_region(layout, "region_missing_absent", absent_missing, allow_show=False)
+        self._add_region(layout, "region_extra", extra, allow_show=True)
+        self._add_region(layout, "region_shared", shared, allow_show=True)
+
+        close_button = QPushButton(self.t("close_button"))
+        close_button.clicked.connect(self.close)
+        close_row = QHBoxLayout()
+        close_row.addStretch(1)
+        close_row.addWidget(close_button)
+        layout.addLayout(close_row)
+
+        self.setLayout(layout)
+        self.resize(580, 240)
+
+    def _add_region(self, layout, label_key, nids, allow_show):
+        row = QHBoxLayout()
+        row.addWidget(QLabel(self.t(label_key, count=len(nids))))
+        row.addStretch(1)
+
+        search = build_search_string(sorted(nids), compact=use_compact_format())
+        has_items = bool(nids)
+
+        show_button = QPushButton(self.t("btn_show"))
+        copy_button = QPushButton(self.t("btn_copy"))
+        for button in (show_button, copy_button):
+            button.setAutoDefault(False)
+            button.setDefault(False)
+        show_button.setEnabled(has_items and allow_show)
+        copy_button.setEnabled(has_items)
+        show_button.clicked.connect(lambda: self._show(search))
+        copy_button.clicked.connect(lambda: self._copy(search, len(nids)))
+
+        row.addWidget(show_button)
+        row.addWidget(copy_button)
+        layout.addLayout(row)
+
+    def _show(self, search):
+        try:
+            self.browser.search_for(search)
+        except AttributeError:
+            self.browser.setFilter(search)
+
+    def _copy(self, search, count):
+        set_clipboard_text(search)
+        tooltip(self.t("region_copied", count=count))
+
+
+# -----------------------------------------------------------------------------
 # Dialog öffnen und Vergleich durchführen
 # -----------------------------------------------------------------------------
 def show_nid_compare_dialog_and_compare(browser: Browser):
@@ -250,18 +352,26 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
                 showInfo(get_localized_text("your_field_empty"))
             return
 
-        missing_nids = friend_nids - your_nids
+        diff = compute_diff(your_nids, friend_nids)
+        missing = diff["missing"]
 
-        if not missing_nids:
-            tooltip(get_localized_text("no_missing_cards"))
-        else:
-            final_missing_search_string = build_search_string(sorted(missing_nids), compact=use_compact_format())
-            try:
-                browser.search_for(final_missing_search_string)
-            except AttributeError:
-                browser.setFilter(final_missing_search_string)
-            set_clipboard_text(final_missing_search_string)
-            tooltip(get_localized_text("missing_cards_found", num_missing=len(missing_nids)))
+        # "Fehlend" aufteilen: was liegt trotzdem in der Sammlung (z. B. suspendiert)?
+        present_missing = missing & find_existing_nids(mw.col, missing) if missing else set()
+        absent_missing = missing - present_missing
+
+        result_dialog = NIDCompareResultDialog(
+            browser,
+            your_count=len(your_nids),
+            friend_count=len(friend_nids),
+            present_missing=present_missing,
+            absent_missing=absent_missing,
+            extra=diff["extra"],
+            shared=diff["shared"],
+            get_localized_text_func=get_localized_text,
+        )
+        # Referenz halten, damit der nicht-modale Dialog nicht weggeräumt wird.
+        browser._ankiidcopy_result_dialog = result_dialog
+        result_dialog.show()
 
 # -----------------------------------------------------------------------------
 # Persistente Copy-Aktion (damit der Shortcut wirkt UND im Menü angezeigt wird)

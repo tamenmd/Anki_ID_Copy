@@ -37,6 +37,23 @@ def parse_nids_from_text(text):
     return nids
 
 
+def compute_diff(your_nids, friend_nids):
+    """Symmetric set comparison of two note-ID collections.
+
+    Returns a dict with three sets:
+      - ``missing``: IDs the friend has but you don't (friend - you)
+      - ``extra``:   IDs you have but the friend doesn't (you - friend)
+      - ``shared``:  IDs both have (intersection)
+    """
+    you = set(your_nids)
+    friend = set(friend_nids)
+    return {
+        "missing": friend - you,
+        "extra": you - friend,
+        "shared": you & friend,
+    }
+
+
 def build_search_string(nids, compact=False):
     """Build an Anki browser search string from an iterable of note IDs.
 
