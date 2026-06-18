@@ -82,7 +82,8 @@ LANGUAGES = {
         "btn_show": "Im Browser zeigen",
         "btn_copy": "Kopieren",
         "close_button": "Schließen",
-        "region_copied": "{count} IDs kopiert."
+        "region_copied": "{count} IDs kopiert.",
+        "btn_suspended": "Suspendierte zeigen ({count})"
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
@@ -109,7 +110,8 @@ LANGUAGES = {
         "btn_show": "Show in browser",
         "btn_copy": "Copy",
         "close_button": "Close",
-        "region_copied": "{count} IDs copied."
+        "region_copied": "{count} IDs copied.",
+        "btn_suspended": "Show suspended ({count})"
     }
 }
 
@@ -238,11 +240,7 @@ class NIDCompareDialog(QDialog):
 # -----------------------------------------------------------------------------
 # Hilfsfunktion: welche der NIDs existieren tatsächlich in der Sammlung?
 # -----------------------------------------------------------------------------
-def find_existing_nids(col, nids):
-    """Return the subset of ``nids`` that actually exist in the collection."""
-    if not nids:
-        return set()
-    search = build_search_string(nids, compact=True)
+def _find_notes(col, search):
     finder = getattr(col, "find_notes", None) or getattr(col, "findNotes", None)
     if finder is None:
         return set()
@@ -252,13 +250,26 @@ def find_existing_nids(col, nids):
         return set()
 
 
+def find_existing_nids(col, nids):
+    """Return the subset of ``nids`` that actually exist in the collection."""
+    if not nids:
+        return set()
+    return _find_notes(col, build_search_string(nids, compact=True))
+
+
+def find_suspended_nids(col, nids):
+    """Return the subset of ``nids`` that have at least one suspended card."""
+    if not nids:
+        return set()
+    search = "is:suspended (" + build_search_string(nids, compact=True) + ")"
+    return _find_notes(col, search) & set(nids)
+
+
 # -----------------------------------------------------------------------------
 # Ergebnis-Scorecard: zeigt alle Diff-Regionen mit klickbaren Aktionen
 # -----------------------------------------------------------------------------
 class NIDCompareResultDialog(QDialog):
-    def __init__(self, browser, your_count, friend_count,
-                 present_missing, absent_missing, extra, shared,
-                 get_localized_text_func):
+    def __init__(self, browser, your_count, friend_count, regions, get_localized_text_func):
         super().__init__(browser)
         self.browser = browser
         self.t = get_localized_text_func
@@ -273,10 +284,8 @@ class NIDCompareResultDialog(QDialog):
         totals.setFont(totals_font)
         layout.addWidget(totals)
 
-        self._add_region(layout, "region_missing_present", present_missing, allow_show=True)
-        self._add_region(layout, "region_missing_absent", absent_missing, allow_show=False)
-        self._add_region(layout, "region_extra", extra, allow_show=True)
-        self._add_region(layout, "region_shared", shared, allow_show=True)
+        for region in regions:
+            self._add_region(layout, region)
 
         close_button = QPushButton(self.t("close_button"))
         close_button.clicked.connect(self.close)
@@ -286,15 +295,29 @@ class NIDCompareResultDialog(QDialog):
         layout.addLayout(close_row)
 
         self.setLayout(layout)
-        self.resize(580, 240)
+        self.resize(680, 260)
 
-    def _add_region(self, layout, label_key, nids, allow_show):
+    def _add_region(self, layout, region):
+        nids = region["nids"]
+        allow_show = region["allow_show"]
+        suspended = region.get("suspended")  # set, or None when not locally owned
+        has_items = bool(nids)
+        search = build_search_string(sorted(nids), compact=use_compact_format())
+
         row = QHBoxLayout()
-        row.addWidget(QLabel(self.t(label_key, count=len(nids))))
+        row.addWidget(QLabel(self.t(region["key"], count=len(nids))))
         row.addStretch(1)
 
-        search = build_search_string(sorted(nids), compact=use_compact_format())
-        has_items = bool(nids)
+        # Suspendierte Notizen dieser Region (nur für lokal vorhandene Regionen)
+        if suspended is not None:
+            susp_button = QPushButton(self.t("btn_suspended", count=len(suspended)))
+            susp_button.setAutoDefault(False)
+            susp_button.setDefault(False)
+            susp_button.setEnabled(bool(suspended))
+            susp_button.clicked.connect(
+                lambda checked=False, s=search: self._show("is:suspended (" + s + ")")
+            )
+            row.addWidget(susp_button)
 
         show_button = QPushButton(self.t("btn_show"))
         copy_button = QPushButton(self.t("btn_copy"))
@@ -303,8 +326,8 @@ class NIDCompareResultDialog(QDialog):
             button.setDefault(False)
         show_button.setEnabled(has_items and allow_show)
         copy_button.setEnabled(has_items)
-        show_button.clicked.connect(lambda: self._show(search))
-        copy_button.clicked.connect(lambda: self._copy(search, len(nids)))
+        show_button.clicked.connect(lambda checked=False, s=search: self._show(s))
+        copy_button.clicked.connect(lambda checked=False, s=search, n=len(nids): self._copy(s, n))
 
         row.addWidget(show_button)
         row.addWidget(copy_button)
@@ -354,19 +377,30 @@ def show_nid_compare_dialog_and_compare(browser: Browser):
 
         diff = compute_diff(your_nids, friend_nids)
         missing = diff["missing"]
+        extra = diff["extra"]
+        shared = diff["shared"]
 
         # "Fehlend" aufteilen: was liegt trotzdem in der Sammlung (z. B. suspendiert)?
         present_missing = missing & find_existing_nids(mw.col, missing) if missing else set()
         absent_missing = missing - present_missing
 
+        # Pro lokal vorhandener Region: welche Notizen sind bei dir suspendiert?
+        regions = [
+            {"key": "region_missing_present", "nids": present_missing, "allow_show": True,
+             "suspended": find_suspended_nids(mw.col, present_missing)},
+            {"key": "region_missing_absent", "nids": absent_missing, "allow_show": False,
+             "suspended": None},
+            {"key": "region_extra", "nids": extra, "allow_show": True,
+             "suspended": find_suspended_nids(mw.col, extra)},
+            {"key": "region_shared", "nids": shared, "allow_show": True,
+             "suspended": find_suspended_nids(mw.col, shared)},
+        ]
+
         result_dialog = NIDCompareResultDialog(
             browser,
             your_count=len(your_nids),
             friend_count=len(friend_nids),
-            present_missing=present_missing,
-            absent_missing=absent_missing,
-            extra=diff["extra"],
-            shared=diff["shared"],
+            regions=regions,
             get_localized_text_func=get_localized_text,
         )
         # Referenz halten, damit der nicht-modale Dialog nicht weggeräumt wird.
