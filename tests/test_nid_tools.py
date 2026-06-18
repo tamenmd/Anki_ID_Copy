@@ -7,7 +7,7 @@ import unittest
 # Make the repo root importable so `nid_tools` resolves when run directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nid_tools import parse_nids_from_text, build_search_string
+from nid_tools import parse_nids_from_text, build_search_string, compute_diff
 
 
 class TestParseNids(unittest.TestCase):
@@ -60,6 +60,38 @@ class TestBuildSearchString(unittest.TestCase):
 
     def test_empty_is_empty_string(self):
         self.assertEqual(build_search_string([]), "")
+
+
+class TestComputeDiff(unittest.TestCase):
+    def test_basic_regions(self):
+        d = compute_diff({1, 2, 3}, {2, 3, 4})
+        self.assertEqual(d["missing"], {4})   # friend has, you don't
+        self.assertEqual(d["extra"], {1})     # you have, friend doesn't
+        self.assertEqual(d["shared"], {2, 3})
+
+    def test_disjoint(self):
+        d = compute_diff({1}, {2})
+        self.assertEqual(d["missing"], {2})
+        self.assertEqual(d["extra"], {1})
+        self.assertEqual(d["shared"], set())
+
+    def test_identical(self):
+        d = compute_diff({1, 2}, {1, 2})
+        self.assertEqual(d["missing"], set())
+        self.assertEqual(d["extra"], set())
+        self.assertEqual(d["shared"], {1, 2})
+
+    def test_empty_your_side(self):
+        d = compute_diff(set(), {1, 2})
+        self.assertEqual(d["missing"], {1, 2})
+        self.assertEqual(d["extra"], set())
+        self.assertEqual(d["shared"], set())
+
+    def test_accepts_lists(self):
+        d = compute_diff([1, 1, 2], [2, 2, 3])
+        self.assertEqual(d["missing"], {3})
+        self.assertEqual(d["extra"], {1})
+        self.assertEqual(d["shared"], {2})
 
 
 if __name__ == "__main__":
