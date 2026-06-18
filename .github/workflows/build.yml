@@ -6,6 +6,9 @@ on:
   release:
     types: [ created ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,29 +16,42 @@ jobs:
     steps:
     # 1. Code herunterladen
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    # 2. NEU: meta.json Timestamp aktualisieren
-    # Das sorgt dafür, dass Anki die Datei immer als "neue Version" erkennt.
-    - name: Update mod time in meta.json
+    # 2. Python bereitstellen
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    # 3. Syntax prüfen und Unit-Tests laufen lassen
+    #    (py_compile importiert aqt nicht, daher kein Anki nötig)
+    - name: Compile & test
       run: |
-        python3 -c 'import json, time; f="meta.json"; d=json.load(open(f)); d["mod"]=int(time.time()); json.dump(d, open(f,"w"))'
-        echo "Updated meta.json mod time to current timestamp."
+        python -m py_compile __init__.py nid_tools.py
+        python -m unittest discover -s tests -v
 
-    # 3. .ankiaddon Datei erstellen (zippen)
+    # 4. .ankiaddon Datei erstellen (nur die Dateien, die ins Add-on gehören)
+    #    Bewusst OHNE meta.json: die verwaltet Anki lokal pro Installation.
     - name: Create .ankiaddon file
-      run: |
-        # Zippt alles im aktuellen Ordner, schließt aber Git-Dateien und Tests aus
-        zip -r Anki_ID_Copy.ankiaddon . -x ".git/*" ".github/*" ".gitignore" ".gitattributes" "README.md" "*.ui" "screenshots/*"
+      run: zip Anki_ID_Copy.ankiaddon __init__.py nid_tools.py manifest.json
 
-    # 4. Upload als Artifact (damit du es direkt herunterladen kannst)
+    # 5. Archiv-Inhalt verifizieren (verhindert kaputte Releases)
+    - name: Verify archive contents
+      run: |
+        for f in __init__.py nid_tools.py manifest.json; do
+          unzip -l Anki_ID_Copy.ankiaddon | grep -q "$f" || { echo "FEHLT im Archiv: $f"; exit 1; }
+        done
+        echo "Archiv enthält alle Pflichtdateien."
+
+    # 6. Upload als Artifact (damit du es direkt herunterladen kannst)
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Anki_ID_Copy-latest
         path: Anki_ID_Copy.ankiaddon
 
-    # 5. Automatisch an das Release anhängen (nur wenn du ein Release erstellst)
+    # 7. Automatisch an das Release anhängen (nur wenn du ein Release erstellst)
     - name: Upload to Release
       if: github.event_name == 'release'
       uses: svenstaro/upload-release-action@v2
