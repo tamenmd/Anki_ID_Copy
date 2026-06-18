@@ -64,6 +64,8 @@ LANGUAGES = {
     "de": {
         "menu_item_copy": "Notiz-IDs als Suchstring kopieren",
         "menu_item_compare": "Notiz-IDs mit Freund vergleichen",
+        "tools_menu_compare": "Anki ID Copy: Notiz-IDs vergleichen",
+        "open_browser_failed": "Der Browser konnte nicht geöffnet werden.",
         "copied_success": "Notiz-IDs kopiert ({num_ids} Stück). Beispiel: {example_string}",
 
         # Dialogtexte
@@ -101,6 +103,8 @@ LANGUAGES = {
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
         "menu_item_compare": "Compare Note IDs with Friend",
+        "tools_menu_compare": "Anki ID Copy: Compare Note IDs",
+        "open_browser_failed": "The browser could not be opened.",
         "copied_success": "Note IDs copied ({num_ids} total). Example: {example_string}",
 
         # Dialog texts
@@ -811,6 +815,33 @@ def on_browser_will_show_context_menu(browser, menu):
 
     # optional: Trennung nach dem Block
     menu.addSeparator()
+
+
+# -----------------------------------------------------------------------------
+# Tools-Menü-Eintrag: Vergleich auch ohne Rechtsklick erreichbar
+# -----------------------------------------------------------------------------
+def open_compare_from_tools():
+    try:
+        from aqt import dialogs
+        browser = dialogs.open("Browser", mw)
+        browser.activateWindow()
+        browser.raise_()
+    except Exception:
+        showInfo(get_localized_text("open_browser_failed"))
+        return
+    show_nid_compare_dialog_and_compare(browser)
+
+
+def setup_tools_menu():
+    try:
+        action = QAction(get_localized_text("tools_menu_compare"), mw)
+        action.triggered.connect(open_compare_from_tools)
+        mw.form.menuTools.addAction(action)
+    except Exception:
+        pass
+
+
+setup_tools_menu()
 
 
 # Shortcut früh registrieren, damit er auch ohne geöffnetes Kontextmenü wirkt.

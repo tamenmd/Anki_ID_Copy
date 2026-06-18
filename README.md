@@ -1,0 +1,86 @@
+# Anki ID Copy
+
+Copy selected note IDs as a search string, and compare your notes with a
+friend's to instantly see what you're missing — built for medical students who
+share large decks (AnKing / Zanki / AMBOSS / Ankizin / Ankiphil style).
+
+> **Für deutsche Med-Studenten:** Schickt euch gegenseitig Karten-Auswahlen als
+> `nid:`-Suchstring und vergleicht per Klick, welche Notizen euch fehlen, welche
+> ihr zusätzlich habt und welche gemeinsam sind — inkl. Suspension-Status und
+> Aufschlüsselung nach Fach. Funktioniert, wenn ihr dasselbe geteilte Deck
+> (z. B. Ankizin über AnkiCollab) nutzt.
+
+## Features
+
+- **Copy Note IDs** — right-click selected notes in the Browser → copy them as a
+  search string (`nid:1,2,3`) to the clipboard. Configurable keyboard shortcut
+  (default `Ctrl+Alt+C`).
+- **Compare with a friend** — paste your IDs and your friend's IDs; get a
+  scorecard with all set regions:
+  - **Missing** (friend has, you don't), split into *present in your collection
+    (e.g. suspended)* vs *not in your collection at all*
+  - **Extra** (you have, friend doesn't)
+  - **Shared** (both have)
+- **Suspension-aware** — for each locally-owned region, see how many notes you
+  have suspended and jump straight to them (`is:suspended …`).
+- **Coverage breakdown** — break any region down by **deck** or **tag**, sorted
+  by count, with one click to show each group in the Browser.
+- **Polished UI** — modern, theme-safe cards and badges that adapt to Anki's
+  light and dark modes. German and English interface (follows Anki's language).
+
+## Installation
+
+- **Manual (.ankiaddon):** download `Anki_ID_Copy.ankiaddon` from the
+  [Releases](../../releases) page and double-click it (or drag it onto Anki).
+- **From source:** the add-on *is* this repository folder. Pushing to `main`
+  triggers a GitHub Actions build that produces `Anki_ID_Copy.ankiaddon` as an
+  artifact; tagged releases attach it automatically.
+
+## Usage
+
+1. Open the **Browser** (`b`).
+2. **Copy:** select notes → right-click → *Anki ID Copy → Copy Note IDs as
+   Search String* (or press the shortcut). Send the copied text to your friend.
+3. **Compare:** right-click → *Compare Note IDs with Friend* (or
+   **Tools → Anki ID Copy: Compare Note IDs**). Your selection is pre-filled on
+   the left; paste your friend's IDs on the right → **Compare**.
+4. In the result scorecard, use **Show in browser**, **Copy**, **Show
+   suspended**, or **Break down** on any region.
+
+## Configuration
+
+Open **Tools → Add-ons → Anki ID Copy → Config**. See
+[config.md](config.md) for details.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `copy_shortcut` | `Ctrl+Alt+C` | Browser shortcut for the copy action (empty disables it). `Ctrl+Shift+C` is reserved by Anki for Insert Cloze. |
+| `search_format` | `compact` | `compact` → `nid:1,2,3`, `or` → `nid:1 OR nid:2`. |
+
+## Compatibility
+
+Anki **2.1.50+**, both Qt5 and Qt6 builds (Qt symbols are imported via `aqt.qt`).
+
+## Development
+
+```bash
+python -m unittest discover -s tests   # run the unit tests for the pure logic
+python -m py_compile __init__.py nid_tools.py
+```
+
+The pure, Anki-independent logic (ID parsing, search-string building, set diff,
+grouping) lives in [`nid_tools.py`](nid_tools.py) and is unit-tested in
+[`tests/`](tests). The Anki/Qt glue lives in [`__init__.py`](__init__.py).
+
+## A note on note IDs
+
+Comparison matches on Anki **note IDs (`nid`)**. These are preserved from the
+source when a deck is distributed as one artifact (a shared AnkiCollab
+subscription, an AnkiHub deck, or the same downloaded `.apkg`), so everyone who
+got the deck the same way shares identical IDs and the comparison is exact. If
+two people obtained "the same" deck through *different* channels, their IDs may
+not line up.
+
+## License
+
+[MIT](LICENSE) © 2026 tamenmd
