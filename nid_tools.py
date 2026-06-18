@@ -54,6 +54,22 @@ def compute_diff(your_nids, friend_nids):
     }
 
 
+def group_counts(pairs):
+    """Count distinct items per group.
+
+    ``pairs`` is an iterable of ``(group, item)`` tuples. The same item within
+    the same group is counted once (so an item may legitimately appear in
+    several groups, e.g. a note carrying multiple tags). Returns a list of
+    ``(group, count)`` sorted by count descending, then by group ascending.
+    """
+    buckets = {}
+    for group, item in pairs:
+        buckets.setdefault(group, set()).add(item)
+    result = [(group, len(items)) for group, items in buckets.items()]
+    result.sort(key=lambda gc: (-gc[1], str(gc[0])))
+    return result
+
+
 def build_search_string(nids, compact=False):
     """Build an Anki browser search string from an iterable of note IDs.
 

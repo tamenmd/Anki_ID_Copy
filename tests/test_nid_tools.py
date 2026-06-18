@@ -7,7 +7,7 @@ import unittest
 # Make the repo root importable so `nid_tools` resolves when run directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nid_tools import parse_nids_from_text, build_search_string, compute_diff
+from nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts
 
 
 class TestParseNids(unittest.TestCase):
@@ -92,6 +92,34 @@ class TestComputeDiff(unittest.TestCase):
         self.assertEqual(d["missing"], {3})
         self.assertEqual(d["extra"], {1})
         self.assertEqual(d["shared"], {2})
+
+
+class TestGroupCounts(unittest.TestCase):
+    def test_counts_per_group(self):
+        self.assertEqual(
+            group_counts([("a", 1), ("a", 2), ("b", 1)]),
+            [("a", 2), ("b", 1)],
+        )
+
+    def test_distinct_items_only(self):
+        # the same item in the same group counts once
+        self.assertEqual(group_counts([("a", 1), ("a", 1)]), [("a", 1)])
+
+    def test_sorted_by_count_desc_then_key(self):
+        self.assertEqual(
+            group_counts([("a", 1), ("b", 1), ("b", 2), ("c", 1), ("c", 2)]),
+            [("b", 2), ("c", 2), ("a", 1)],
+        )
+
+    def test_item_in_multiple_groups(self):
+        # tag-like: one note can belong to several groups
+        self.assertEqual(
+            group_counts([("x", 1), ("y", 1), ("x", 2)]),
+            [("x", 2), ("y", 1)],
+        )
+
+    def test_empty(self):
+        self.assertEqual(group_counts([]), [])
 
 
 if __name__ == "__main__":
