@@ -7,7 +7,7 @@ import unittest
 # Make the repo root importable so `nid_tools` resolves when run directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts
+from nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts, build_unsuspended_search
 
 
 class TestParseNids(unittest.TestCase):
@@ -120,6 +120,20 @@ class TestGroupCounts(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(group_counts([]), [])
+
+
+class TestBuildUnsuspendedSearch(unittest.TestCase):
+    def test_basic_compact_form(self):
+        self.assertEqual(
+            build_unsuspended_search([1, 2, 3]),
+            "-is:suspended (nid:1,2,3)",
+        )
+
+    def test_single_id(self):
+        self.assertEqual(build_unsuspended_search([42]), "-is:suspended (nid:42)")
+
+    def test_empty_returns_empty_string(self):
+        self.assertEqual(build_unsuspended_search([]), "")
 
 
 if __name__ == "__main__":

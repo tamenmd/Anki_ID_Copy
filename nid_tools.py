@@ -82,3 +82,16 @@ def build_search_string(nids, compact=False):
     if compact:
         return "nid:" + ",".join(parts)
     return " OR ".join("nid:" + p for p in parts)
+
+
+def build_unsuspended_search(nids):
+    """Build a search matching the NON-suspended cards of the given notes.
+
+    Yields ``-is:suspended (nid:1,2,3)``; returns ``""`` for an empty input so
+    the caller can short-circuit. Used to keep only notes that still have at
+    least one active (non-suspended) card.
+    """
+    inner = build_search_string(nids, compact=True)
+    if not inner:
+        return ""
+    return "-is:suspended (" + inner + ")"
