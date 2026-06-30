@@ -25,7 +25,7 @@ from aqt.qt import (
     Qt,
 )
 
-from .nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts
+from .nid_tools import parse_nids_from_text, build_search_string, compute_diff, group_counts, build_unsuspended_search
 
 # --- Kompatibilitätsschicht für PyQt5/PyQt6 ---
 try:
@@ -203,6 +203,17 @@ def set_clipboard_text(text: str) -> None:
     QApplication.clipboard().setText(text)
 
 
+def _put_nids_on_clipboard(nids):
+    """Build the ``nid:`` search string for ``nids``, copy it to the clipboard,
+    and return ``(count, preview)`` for the caller's tooltip."""
+    final_search_string = build_search_string(nids, compact=use_compact_format())
+    set_clipboard_text(final_search_string)
+    preview = final_search_string[:50]
+    if len(final_search_string) > 50:
+        preview += "…"
+    return len(nids), preview
+
+
 def copy_note_ids_as_search_string(browser: Browser):
     selected_nids = browser.selectedNotes()
 
@@ -210,19 +221,37 @@ def copy_note_ids_as_search_string(browser: Browser):
         # Keine Meldung anzeigen, um Pop-up zu vermeiden
         return
 
-    final_search_string = build_search_string(selected_nids, compact=use_compact_format())
-    set_clipboard_text(final_search_string)
-
-    preview = final_search_string[:50]
-    if len(final_search_string) > 50:
-        preview += "…"
-
-    message = get_localized_text(
+    num_ids, preview = _put_nids_on_clipboard(selected_nids)
+    tooltip(get_localized_text(
         "copied_success",
-        num_ids=len(selected_nids),
-        example_string=preview
-    )
-    tooltip(message)
+        num_ids=num_ids,
+        example_string=preview,
+    ))
+
+
+def copy_note_ids_excluding_suspended(browser: Browser):
+    selected_nids = browser.selectedNotes()
+
+    if not selected_nids:
+        # Wie beim normalen Kopieren: keine Meldung ohne Auswahl.
+        return
+
+    kept_set = find_unsuspended_nids(mw.col, selected_nids)
+    # Auswahl-Reihenfolge bewahren, nur komplett suspendierte Notizen weglassen.
+    kept = [n for n in selected_nids if n in kept_set]
+    excluded = len(selected_nids) - len(kept)
+
+    if not kept:
+        tooltip(get_localized_text("copy_all_suspended"))
+        return
+
+    num_ids, preview = _put_nids_on_clipboard(kept)
+    tooltip(get_localized_text(
+        "copied_success_filtered",
+        num_ids=num_ids,
+        excluded=excluded,
+        example_string=preview,
+    ))
 
 # -----------------------------------------------------------------------------
 # Benutzerdefiniertes Dialogfenster für den NID-Vergleich
@@ -360,6 +389,17 @@ def find_suspended_nids(col, nids):
         return set()
     search = "is:suspended (" + build_search_string(nids, compact=True) + ")"
     return _find_notes(col, search) & set(nids)
+
+
+def find_unsuspended_nids(col, nids):
+    """Return the subset of ``nids`` that have at least one non-suspended card.
+
+    Mirror of ``find_suspended_nids``: a note qualifies as long as it is not
+    completely suspended.
+    """
+    if not nids:
+        return set()
+    return _find_notes(col, build_unsuspended_search(nids)) & set(nids)
 
 
 def compute_coverage(col, nids, mode):
@@ -823,6 +863,27 @@ def get_or_create_copy_action(browser):
     browser._ankiidcopy_copy_action = action
     return action
 
+
+def get_or_create_copy_unsuspended_action(browser):
+    """Return a persistent 'copy excluding suspended' QAction, creating it once.
+
+    Mirrors ``get_or_create_copy_action``. Uses the optional
+    ``copy_unsuspended_shortcut`` (empty by default, so it never conflicts with
+    the main ``copy_shortcut``).
+    """
+    existing = getattr(browser, "_ankiidcopy_copy_unsuspended_action", None)
+    if existing is not None:
+        return existing
+
+    action = QAction(get_localized_text("menu_item_copy_unsuspended"), browser)
+    shortcut = (get_config().get("copy_unsuspended_shortcut") or "").strip()
+    if shortcut:
+        action.setShortcut(QKeySequence(shortcut))
+    action.triggered.connect(lambda: copy_note_ids_excluding_suspended(browser))
+    browser.addAction(action)
+    browser._ankiidcopy_copy_unsuspended_action = action
+    return action
+
 # -----------------------------------------------------------------------------
 # Kontextmenü-Integration
 # -----------------------------------------------------------------------------
@@ -842,6 +903,9 @@ def on_browser_will_show_context_menu(browser, menu):
 
     # Eintrag: menu_item_copy — persistente Aktion mit Shortcut-Anzeige
     menu.addAction(get_or_create_copy_action(browser))
+
+    # Eintrag: menu_item_copy_unsuspended — Variante ohne komplett suspendierte Notizen
+    menu.addAction(get_or_create_copy_unsuspended_action(browser))
 
     # Eintrag: menu_item_compare
     action_compare = QAction(get_localized_text("menu_item_compare"), browser)
@@ -894,4 +958,5 @@ setup_due_siblings_menu()
 
 # Shortcut früh registrieren, damit er auch ohne geöffnetes Kontextmenü wirkt.
 gui_hooks.browser_will_show.append(get_or_create_copy_action)
+gui_hooks.browser_will_show.append(get_or_create_copy_unsuspended_action)
 gui_hooks.browser_will_show_context_menu.append(on_browser_will_show_context_menu)
