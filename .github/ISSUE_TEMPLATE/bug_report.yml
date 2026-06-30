@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a problem with the add-on
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug.
+  - type: input
+    id: anki-version
+    attributes:
+      label: Anki version
+      description: "Help → About (e.g. 25.x or 2.1.66)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Browser
+        2. Select some notes
+        3. ...
+  - type: textarea
+    id: errors
+    attributes:
+      label: Error message / traceback
+      description: If Anki showed an error window, paste its full text here.
+      render: text

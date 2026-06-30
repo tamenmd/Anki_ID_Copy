@@ -1,5 +1,9 @@
 # Anki ID Copy
 
+[![Build](https://github.com/tamenmd/Anki_ID_Copy/actions/workflows/build.yml/badge.svg)](https://github.com/tamenmd/Anki_ID_Copy/actions/workflows/build.yml)
+[![AnkiWeb](https://img.shields.io/badge/AnkiWeb-download-2496ED)](https://ankiweb.net/shared/info/2110918647)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Copy selected note IDs as a search string, and compare your notes with a
 friend's to instantly see what you're missing — built for medical students who
 share large decks (AnKing / Zanki / AMBOSS / Ankizin / Ankiphil style).
@@ -15,6 +19,10 @@ share large decks (AnKing / Zanki / AMBOSS / Ankizin / Ankiphil style).
 - **Copy Note IDs** — right-click selected notes in the Browser → copy them as a
   search string (`nid:1,2,3`) to the clipboard. Configurable keyboard shortcut
   (default `Ctrl+Alt+C`).
+- **Copy Note IDs (excluding suspended)** — a second context-menu entry that
+  leaves out fully-suspended notes (a note is kept while it still has at least
+  one active card), so you share only what you're actively studying. Optional
+  separate shortcut.
 - **Compare with a friend** — paste your IDs and your friend's IDs; get a
   scorecard with all set regions:
   - **Missing** (friend has, you don't), split into *present in your collection
@@ -79,6 +87,7 @@ Open **Tools → Add-ons → Anki ID Copy → Config**. See
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `copy_shortcut` | `Ctrl+Alt+C` | Browser shortcut for the copy action (empty disables it). `Ctrl+Shift+C` is reserved by Anki for Insert Cloze. |
+| `copy_unsuspended_shortcut` | `""` | Optional shortcut for *Copy Note IDs (excluding suspended)* (empty = none). Don't reuse `copy_shortcut`'s value. |
 | `search_format` | `compact` | `compact` → `nid:1,2,3`, `or` → `nid:1 OR nid:2`. |
 | `due_siblings` | *(object)* | Last-used settings for the Due Siblings dialog (`deck`, `min_ivl`, `max_lapses`, `exclude_struggling`). See [config.md](config.md). |
 
@@ -90,12 +99,15 @@ Anki **2.1.50+**, both Qt5 and Qt6 builds (Qt symbols are imported via `aqt.qt`)
 
 ```bash
 python -m unittest discover -s tests   # run the unit tests for the pure logic
-python -m py_compile __init__.py nid_tools.py
+python -m py_compile __init__.py nid_tools.py due_siblings_logic.py due_siblings.py
 ```
 
 The pure, Anki-independent logic (ID parsing, search-string building, set diff,
-grouping) lives in [`nid_tools.py`](nid_tools.py) and is unit-tested in
-[`tests/`](tests). The Anki/Qt glue lives in [`__init__.py`](__init__.py).
+grouping, due-sibling queries) lives in [`nid_tools.py`](nid_tools.py) and
+[`due_siblings_logic.py`](due_siblings_logic.py) and is unit-tested in
+[`tests/`](tests). The Anki/Qt glue lives in [`__init__.py`](__init__.py) and
+[`due_siblings.py`](due_siblings.py). See [CONTRIBUTING.md](CONTRIBUTING.md) for
+the full layout and how to build the `.ankiaddon`.
 
 ## A note on note IDs
 

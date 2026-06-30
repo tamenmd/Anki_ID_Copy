@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AnkiWeb add-on page
+    url: https://ankiweb.net/shared/info/2110918647
+    about: Install the add-on, read the description, and leave a rating.
+  - name: Anki support forums
+    url: https://forums.ankiweb.net/
+    about: General Anki usage questions that are not specific to this add-on.

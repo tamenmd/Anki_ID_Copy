@@ -1,5 +1,6 @@
 {
   "package": "Anki_ID_Copy",
   "name": "Anki ID Copy",
+  "human_version": "1.0.0",
   "min_point_version": 50
 }
