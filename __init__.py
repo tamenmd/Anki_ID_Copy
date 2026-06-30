@@ -884,6 +884,7 @@ def get_or_create_copy_unsuspended_action(browser):
     browser._ankiidcopy_copy_unsuspended_action = action
     return action
 
+
 # -----------------------------------------------------------------------------
 # Kontextmenü-Integration
 # -----------------------------------------------------------------------------
