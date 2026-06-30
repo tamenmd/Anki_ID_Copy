@@ -1,4 +1,10 @@
 {
   "copy_shortcut": "Ctrl+Alt+C",
-  "search_format": "compact"
+  "search_format": "compact",
+  "due_siblings": {
+    "deck": "",
+    "min_ivl": 21,
+    "max_lapses": 1,
+    "exclude_struggling": true
+  }
 }

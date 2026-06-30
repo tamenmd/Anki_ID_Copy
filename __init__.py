@@ -98,7 +98,22 @@ LANGUAGES = {
         "group_by_label": "Gruppieren nach:",
         "group_by_deck": "Deck (Fach)",
         "group_by_tag": "Tag",
-        "breakdown_other": "… {groups} weitere Gruppen ({notes} Notizen)"
+        "breakdown_other": "… {groups} weitere Gruppen ({notes} Notizen)",
+        # --- Fällige Geschwister ---
+        "ds_menu": "Fällige Geschwister finden (neue Karten, Schwester schon gelernt)…",
+        "ds_title": "Fällige Geschwister finden",
+        "ds_intro": "Findet neue Karten, deren Geschwister du schon stabil gelernt hast — so gehen sie nicht im Berg neuer Karten unter.",
+        "ds_deck_label": "Deck:",
+        "ds_exclude_struggling": "Karten ausblenden, deren Geschwister gerade zicken (lernend / Leech / viele Patzer)",
+        "ds_advanced": "Erweitert",
+        "ds_min_ivl_label": "Schwester gilt als sicher gelernt ab Intervall ≥ (Tage)",
+        "ds_max_lapses_label": "Max. erlaubte Patzer (Lapses) der Schwester ≤",
+        "ds_count": "→ {count} fällige Geschwister gefunden",
+        "ds_show_browser": "Im Browser zeigen",
+        "ds_start_filtered": "Als Lerndeck starten",
+        "ds_empty_info": "Keine passenden Karten gefunden. Passe Deck oder Einstellungen an.",
+        "ds_filtered_failed": "Das Lerndeck konnte nicht erstellt werden.",
+        "ds_filtered_deck_name": "Fällige Geschwister",
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
@@ -137,7 +152,22 @@ LANGUAGES = {
         "group_by_label": "Group by:",
         "group_by_deck": "Deck (subject)",
         "group_by_tag": "Tag",
-        "breakdown_other": "… {groups} more groups ({notes} notes)"
+        "breakdown_other": "… {groups} more groups ({notes} notes)",
+        # --- Due siblings ---
+        "ds_menu": "Find due siblings (new cards, sibling already learned)…",
+        "ds_title": "Find due siblings",
+        "ds_intro": "Finds new cards whose siblings you've already learned for good — so they don't drown in your pile of new cards.",
+        "ds_deck_label": "Deck:",
+        "ds_exclude_struggling": "Hide cards whose siblings are currently giving you trouble (learning / leech / many lapses)",
+        "ds_advanced": "Advanced",
+        "ds_min_ivl_label": "Sibling counts as learned from interval ≥ (days)",
+        "ds_max_lapses_label": "Max. allowed lapses of the sibling ≤",
+        "ds_count": "→ {count} due siblings found",
+        "ds_show_browser": "Show in browser",
+        "ds_start_filtered": "Start as study deck",
+        "ds_empty_info": "No matching cards found. Adjust the deck or settings.",
+        "ds_filtered_failed": "The study deck could not be created.",
+        "ds_filtered_deck_name": "Due siblings",
     }
 }
 
