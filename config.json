@@ -1,6 +1,7 @@
 {
   "copy_shortcut": "Ctrl+Alt+C",
   "search_format": "compact",
+  "copy_unsuspended_shortcut": "",
   "due_siblings": {
     "deck": "",
     "min_ivl": 21,

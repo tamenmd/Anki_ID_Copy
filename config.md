@@ -25,3 +25,12 @@ hier gespeichert / the values last used in the dialog are stored here.
 - `exclude_struggling` — `true` blendet Notizen aus, deren Geschwister gerade
   lernend/Leech/häufig-lapsend sind / hides notes whose siblings are currently
   learning/leech/lapsing. Default `true`.
+
+**`copy_unsuspended_shortcut`** — optionales Tastenkürzel für „Notiz-IDs kopieren
+(ohne suspendierte)" / optional keyboard shortcut for "Copy Note IDs (excluding
+suspended)".
+- Leerer Wert (`""`, Standard) = kein Kürzel / empty value (default) = no shortcut.
+- Beispiel / example: `Ctrl+Alt+Shift+C`. Nicht denselben Wert wie
+  `copy_shortcut` verwenden / do not use the same value as `copy_shortcut`.
+- Wirkt beim nächsten Öffnen eines Browser-Fensters / takes effect the next time
+  a browser window is opened.

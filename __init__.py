@@ -39,6 +39,7 @@ except AttributeError:
 DEFAULT_CONFIG = {
     "copy_shortcut": "Ctrl+Alt+C",
     "search_format": "compact",
+    "copy_unsuspended_shortcut": "",
 }
 
 
@@ -114,6 +115,9 @@ LANGUAGES = {
         "ds_empty_info": "Keine passenden Karten gefunden. Passe Deck oder Einstellungen an.",
         "ds_filtered_failed": "Das Lerndeck konnte nicht erstellt werden.",
         "ds_filtered_deck_name": "Fällige Geschwister",
+        "menu_item_copy_unsuspended": "Notiz-IDs kopieren (ohne suspendierte)",
+        "copied_success_filtered": "Notiz-IDs kopiert ({num_ids} Stück, {excluded} suspendierte ausgelassen). Beispiel: {example_string}",
+        "copy_all_suspended": "Alle ausgewählten Notizen sind komplett suspendiert — nichts kopiert.",
     },
     "en": {
         "menu_item_copy": "Copy Note IDs as Search String",
@@ -168,6 +172,9 @@ LANGUAGES = {
         "ds_empty_info": "No matching cards found. Adjust the deck or settings.",
         "ds_filtered_failed": "The study deck could not be created.",
         "ds_filtered_deck_name": "Due siblings",
+        "menu_item_copy_unsuspended": "Copy Note IDs (excluding suspended)",
+        "copied_success_filtered": "Note IDs copied ({num_ids} total, {excluded} suspended left out). Example: {example_string}",
+        "copy_all_suspended": "All selected notes are fully suspended — nothing copied.",
     }
 }
 
