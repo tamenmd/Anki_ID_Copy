@@ -21,6 +21,7 @@ Diese Datei wird NICHT mit ausgeliefert.
 <ul>
 <li>Select notes in the Browser, right-click &rarr; <i>Copy Note IDs as Search String</i> (or press the shortcut, default <i>Ctrl+Alt+C</i>).</li>
 <li>Copies a compact query (e.g. <i>nid:1,2,3</i>) to your clipboard — share it, or paste it into Anki's search bar.</li>
+<li><b>Excluding suspended:</b> a second entry <i>Copy Note IDs (excluding suspended)</i> leaves out fully-suspended notes — a note is kept as long as it still has at least one active card — so you share only what you're actively studying. The tooltip reports how many were left out, and an optional separate shortcut is configurable.</li>
 </ul>
 
 <p><b>2. Compare with a friend — results scorecard</b></p>
