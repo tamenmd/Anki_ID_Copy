@@ -871,7 +871,18 @@ def setup_tools_menu():
         pass
 
 
+def setup_due_siblings_menu():
+    try:
+        from .due_siblings import open_due_siblings_dialog
+        action = QAction(get_localized_text("ds_menu"), mw)
+        action.triggered.connect(open_due_siblings_dialog)
+        mw.form.menuTools.addAction(action)
+    except Exception:
+        pass
+
+
 setup_tools_menu()
+setup_due_siblings_menu()
 
 
 # Shortcut früh registrieren, damit er auch ohne geöffnetes Kontextmenü wirkt.
