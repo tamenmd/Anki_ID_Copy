@@ -28,6 +28,30 @@ share large decks (AnKing / Zanki / AMBOSS / Ankizin / Ankiphil style).
 - **Polished UI** — modern, theme-safe cards and badges that adapt to Anki's
   light and dark modes. German and English interface (follows Anki's language).
 
+## Fällige Geschwister · Due Siblings
+
+**DE:** Über **Werkzeuge → Fällige Geschwister finden …** öffnest du einen Dialog,
+der neue (blaue) Karten findet, deren Geschwisterkarten (andere Karten derselben
+Notiz, z. B. andere Clozes) du schon stabil gelernt hast — so gehen sie nicht im
+Berg neuer Karten unter.
+
+**EN:** Via **Tools → Find due siblings …** you open a dialog that finds new (blue)
+cards whose sibling cards (other cards of the same note, e.g. other clozes) you
+have already learned to a stable state — so they don't drown in your pile of new
+cards.
+
+**Actions:** *Show in browser* opens the matching cards straight in the Browser.
+*Start as study deck* builds a rescheduling filtered deck so you can start
+reviewing immediately.
+
+**Settings (remembered between sessions):**
+- **Deck** — restrict the search to a specific deck (or leave empty for all decks).
+- **Hide cards whose siblings are struggling** — exclude notes whose siblings are
+  still in the learning phase, are leeches, or have too many lapses (default: on).
+- **Advanced → Interval threshold** — minimum interval (days) for a sibling to
+  count as "learned" (default: 21 days).
+- **Advanced → Max. lapses** — maximum allowed lapses for the sibling (default: 1).
+
 ## Installation
 
 - **Manual (.ankiaddon):** download `Anki_ID_Copy.ankiaddon` from the
@@ -56,6 +80,7 @@ Open **Tools → Add-ons → Anki ID Copy → Config**. See
 |-----|---------|---------|
 | `copy_shortcut` | `Ctrl+Alt+C` | Browser shortcut for the copy action (empty disables it). `Ctrl+Shift+C` is reserved by Anki for Insert Cloze. |
 | `search_format` | `compact` | `compact` → `nid:1,2,3`, `or` → `nid:1 OR nid:2`. |
+| `due_siblings` | *(object)* | Last-used settings for the Due Siblings dialog (`deck`, `min_ivl`, `max_lapses`, `exclude_struggling`). See [config.md](config.md). |
 
 ## Compatibility
 

@@ -38,6 +38,16 @@ Diese Datei wird NICHT mit ausgeliefert.
 <p><b>4. Coverage breakdown by deck or tag</b></p>
 <p>Break any region down by deck (subject) or by tag, sorted by count, to see <i>where</i> you differ — e.g. "Pharmacology: 42, Cardiology: 18" — and open each group in the Browser.</p>
 
+<p><b>5. Find due siblings (Tools menu)</b></p>
+<p>Via <i>Tools &rarr; Find due siblings &hellip;</i> (DE: <i>Werkzeuge &rarr; Fällige Geschwister finden &hellip;</i>) you find new (blue) cards whose sibling cards — other cards of the same note, e.g. other clozes — you have already learned to a stable state, so they don't drown in your pile of new cards. Options:</p>
+<ul>
+<li><b>Deck</b> — restrict the search to one deck, or leave empty for all decks.</li>
+<li><b>Hide cards whose siblings are struggling</b> — exclude notes whose siblings are still in the learning phase, are leeches, or have too many lapses (default: on).</li>
+<li><b>Advanced &rarr; Interval threshold</b> — minimum sibling interval (days) to count as learned (default: 21 days).</li>
+<li><b>Advanced &rarr; Max. lapses</b> — maximum allowed lapses of the sibling (default: 1).</li>
+</ul>
+<p>A live count updates as you adjust the settings. Then choose <i>Show in browser</i> to inspect the cards, or <i>Start as study deck</i> to build a rescheduling filtered deck and review them immediately. Settings are remembered between sessions.</p>
+
 <h2>Also</h2>
 <ul>
 <li>Modern interface that follows Anki's light and dark theme.</li>
